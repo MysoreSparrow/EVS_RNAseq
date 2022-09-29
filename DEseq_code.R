@@ -299,3 +299,87 @@ percentVar_infected
     scale_colour_manual(values = color_values) +
     theme.my.own)
 savingFunction(PCAplot_vst, "condition")
+
+
+# calculate the variance for top 500 gene
+rv <- rowVars(assay(vsd))
+ntop <- 500
+# select the ntop genes by variance
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+df1 <- t(assay(vsd)[select, ])
+
+res.pca <- PCA(df1, graph = FALSE, scale.unit = FALSE)
+summary.PCA(res.pca)
+
+# Visualize eigenvalues/variances
+fviz_screeplot(res.pca, addlabels = TRUE)
+
+library("factoextra")
+eig.val <- get_eigenvalue(res.pca)
+eig.val
+
+# var <- get_pca_var(res.pca)
+# fviz_pca_var(res.pca, repel = TRUE)
+
+# library("corrplot")
+# corrplot(var$cos2, is.corr=T)
+
+
+## Genes + PCA Biplots
+
+fviz_pca_biplot(res.pca,
+                repel = TRUE,
+                gradient.cols = c("pink", "blue", "yellow", "green", "red", "black")
+)
+
+heat.colors <- brewer.pal(6, "RdYlBu")
+fviz_pca_var(res.pca,
+             col.var = "contrib", repel = TRUE,
+             gradient.cols = c("Gray", "blue", "yellow", "orange", "green", "red", "black"),
+)
+
+# Contributions of variables to PC2
+fviz_pca_contrib(res.pca, choice = "var", axes = 2, top = 25)
+#
+# # Contributions of variables to PC1
+fviz_contrib(res.pca, choice = "var", axes = 1, top = 25)
+
+## Hierarchical Clustering
+
+### applying rlog Transformation
+
+
+rld <- rlog(dds_infected, blind = FALSE)
+head(assay(rld), 3)
+
+### Extract the rlog matrix from the object
+rld_mat <- assay(rld) # assay() is function from the "SummarizedExperiment" package that was loaded when you loaded DESeq2
+### Compute pairwise correlation values
+rld_cor <- cor(rld_mat) ## cor() is a base R function
+head(rld_cor) ## check the output of cor(), make note of the rownames and colnames
+
+### Plot heatmap
+heat.colors <- brewer.pal(6, "RdYlBu")
+(Hclust_plot <- pheatmap(rld_cor,
+                         color = heat.colors,
+                         main = "Heirarchical Clustering of Samples - Correlation Matrix"
+                         # filename = '/home/keshavprasadgubbi/Documents/AlinaRnaSeq/IvC/Hclust_plot.tiff'
+))
+# Hclust_plot
+
+
+# DGE Results
+
+### Running the differential expression pipeline
+dds1_infected <- DESeq(dds_infected)
+# str(dds1)
+### Building the results table
+res_infected <- results(dds1_infected,
+                        contrast = c("condition", "adult", "d7")
+)
+head(res_infected, 30)
+summary(res_infected)
+
+resdf_infected <- as.data.frame(res_infected) # convert the results table to a df
+
+head(resdf_infected, 20)
