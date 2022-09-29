@@ -173,3 +173,129 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
                                main = "Sample-to-Sample Poisson Distance of Samples",
                                col = colors
 ))
+
+# PCA Plot
+
+### Functions for Plot aethetics and saving PCA Plots
+color_values <- c(
+  "red", "red", "red", "red", "black", "black", "red", "red", "red",
+  "red", "red", "red", "red", "red", "red", "blue", "red", "red", "red", "blue"
+)
+# the basic set of common aesthetic settings for PCA plots,
+theme.my.own <- list(
+  theme_bw(),
+  geom_point(size = 3),
+  coord_fixed(),
+  scale_y_continuous(
+    breaks = seq(-20, 20, 5),
+    sec.axis = sec_axis(~ . * 1,
+                        labels = NULL,
+                        breaks = NULL
+    )
+  ),
+  scale_x_continuous(
+    breaks = seq(-20, 20, 5),
+    sec.axis = sec_axis(~ . * 1,
+                        labels = NULL,
+                        breaks = NULL
+    )
+  ),
+  theme_classic(),
+  geom_hline(yintercept = 0, color = "gray", size = 1),
+  geom_vline(xintercept = 0, color = "gray", size = 1),
+  theme(
+    text = element_text(size = 15),
+    axis.text = element_text(size = 15),
+    legend.position = "bottom",
+    aspect.ratio = 1
+  ),
+  # geom_text(size = 4, hjust = 0, vjust = 0)
+  geom_text_repel(size = 5, min.segment.length = 0.5)
+)
+
+
+## Calculating all PCA Values
+
+
+plotPCA_local <- function(object,
+                          intgroup = "condition",
+                          ntop = 500,
+                          returnData = TRUE,
+                          nPC = 4) {
+  # calculate the variance for each gene
+  rv <- rowVars(assay(object))
+  ntop <- 500
+  # select the ntop genes by variance
+  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+  # perform a PCA on the data in assay(x) for the selected genes
+  pca <- prcomp(t(assay(object)[select, ]))
+  # summary(pca)
+  # the contribution to the total variance for each component
+  percentVar <- pca$sdev^2 / sum(pca$sdev^2)
+  if (!all(intgroup %in% names(colData(object)))) {
+    stop("the argument 'intgroup' should specify columns of colData(dds)")
+  }
+  intgroup.df <-
+    as.data.frame(colData(object)[, intgroup, drop = FALSE])
+  # add the intgroup factors together to create a new grouping factor
+  group <- if (length(intgroup) > 1) {
+    factor(apply(intgroup.df, 1, paste, collapse = ":"))
+  } else {
+    colData(object)[[intgroup]]
+  }
+  # assembly the data for the plot
+  d <- cbind(
+    pca$x[, seq_len(min(nPC, ncol(pca$x))), drop = FALSE],
+    data.frame(group = group, intgroup.df, name = colnames(object))
+  )
+  if (returnData) {
+    attr(d, "percentVar") <- percentVar[1:nPC]
+    # l <- list(pca,d)
+    # return(l)
+    return(d)
+  }
+}
+
+
+## PCA Plot with VST Data
+
+### Function for calculating percentvar
+
+percentvar_calculation <- function(pcaData_variable) {
+  # function to calculate percentvar for different variables
+  percentvar_variable <- round(100 * attr(pcaData_variable, "percentVar"), digits = 3)
+  return(percentvar_variable)
+}
+savingFunction <- function(plotname, metadatacolumn) {
+  # Function to save the PCA plots
+  ggsave(
+    filename =
+      glue("~/Documents/Eva_RNAseq/PCAplot_{metadatacolumn}.png"),
+    plot = plotname,
+    dpi = 300,
+    width = 10,
+    height = 10,
+    units = "in"
+  )
+}
+
+pcaData_infected <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"), returnData = T)
+pcaData_infected
+percentVar_infected <- percentvar_calculation(pcaData_infected)
+percentVar_infected
+
+(PCAplot_vst <- ggplot(
+  pcaData_infected,
+  aes(
+    x = PC1,
+    y = PC2,
+    color = Sample_Name,
+    label = Sample_Name
+  )
+) +
+    xlab(paste0("PC1: ", percentVar_infected[1], "% variance")) +
+    ylab(paste0("PC2: ", percentVar_infected[2], "% variance")) +
+    ggtitle("PCA") +
+    scale_colour_manual(values = color_values) +
+    theme.my.own)
+savingFunction(PCAplot_vst, "condition")
