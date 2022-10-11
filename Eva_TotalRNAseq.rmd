@@ -1,5 +1,5 @@
 ---
-title: "Eva_RNAseq - d7 spF vs adult spF"
+title: "Eva_RNAseq - adult spF vs day7 spF"
 author: "Keshav Prasad Gubbi"
 date: "`r Sys.Date()`"
 output: 
@@ -16,9 +16,8 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r Package Declarations}
 suppressPackageStartupMessages(library("dplyr"))
-
 suppressPackageStartupMessages(library("DESeq2"))
 suppressPackageStartupMessages(library("pheatmap"))
 suppressPackageStartupMessages(library("PoiClaClu"))
@@ -58,13 +57,26 @@ suppressPackageStartupMessages(library("FactoMineR"))
 suppressPackageStartupMessages(library("factoextra"))
 suppressPackageStartupMessages(library("pcaExplorer"))
 ```
+```{r Path Declarations }
+Eva_project_path <- file.path("C:/Users/kesha/Documents/R/Eva_TotalRNASeq/")
 
-```{r}
+adult_spfVsd7_spf_path <- file.path(Eva_project_path, "adult_spfVsd7_spf")
+
+countsmatrix_path <- file.path(Eva_project_path,"featurecounts_Eva_totalRNAseq.csv")
+
+samples_path <- file.path(
+  Eva_project_path,
+  "Samples_eva.csv"
+)
+
+results_path = file.path(adult_spfVsd7_spf_path, "/results_DGE.csv")
+
+```
+
+```{r counts Matrix processing}
 ## Input the Count Matrix
 
-countsmatrix <- read.csv("C:/Users/kesha/Documents/Eva_TotalRNASeq/featurecounts_Eva_totalRNAseq.csv",
-                         stringsAsFactors = TRUE)
-
+countsmatrix <- read.csv(countsmatrix_path, stringsAsFactors = TRUE)
 
 ### Clean up the Count Matrix
 rownames(countsmatrix) <- countsmatrix[, 2]
@@ -74,7 +86,7 @@ rownames(countsmatrix) <- countsmatrix[, 2]
 countsmatrix <- subset(countsmatrix, select = -c(X, EnsemblID)) # dropping the X column
 
 ## Display the column names
-#colnames(countsmatrix)
+# colnames(countsmatrix)
 
 ### Annotating and Exporting ENSEMBL ID into Gene Symbols
 
@@ -101,14 +113,14 @@ symbols <- symbols[match(rownames(countsmatrix), names(symbols))]
 countsmatrix$genename <- symbols
 
 # Removing all rows with NA values for genenames, so that those rows are filtered out.
-countsmatrix <- unique(countsmatrix[rowSums(is.na(countsmatrix)) == 0,]) # Apply rowSums & is.na
+countsmatrix <- unique(countsmatrix[rowSums(is.na(countsmatrix)) == 0, ]) # Apply rowSums & is.na
 
 nrow(countsmatrix)
 
 # Moving the ENSEMBL ID from rownames into separate column for itself.
 countsmatrix <- tibble::rownames_to_column(countsmatrix, "E_ID")
 # Removing the duplicated genes so that then these genes can be made into rownames for countsmatrix
-countsmatrix <- distinct(countsmatrix[!duplicated(countsmatrix$genename),])
+countsmatrix <- distinct(countsmatrix[!duplicated(countsmatrix$genename), ])
 
 # Now make the ganename column into rownames of count matrix
 rownames(countsmatrix) <- countsmatrix[, "genename"]
@@ -122,14 +134,13 @@ class(countsmatrix) <- "numeric"
 
 ### The Count Matrix is:
 head(countsmatrix, 2)
-
 ```
 
-```{r}
+```{r coldata processing}
 ## Develop ColData by importing metadata
 
 # Read the csv file and change the column name. the samples.csv is a list of sample names, ie, the names of bam files.
-sample_ID <- read.csv( "C:/Users/kesha/Documents/Eva_TotalRNASeq/Samples_eva.csv")
+sample_ID <- read.csv(samples_path)
 
 coldata <- as.data.frame(sample_ID)
 colnames(coldata) <- c("Sample_Name", "MouseType", "condition") # change name of one of the columns
@@ -140,23 +151,23 @@ head(coldata)
 ## the elements from Sample_Name from coldata must the the colnames of countsmatrix
 colnames(countsmatrix) <- coldata$Sample_Name
 ```
-
+### Reduce larger Matrix to smaller one - based on comparison
 ```{r}
 
 # *****************Now to the comparisons*************
 # d7 spF vs adult spF
-coldata <- coldata[c(9,10,11,18,19,20),]
-countsmatrix <- countsmatrix[ ,c(9,10,11,18,19,20)]
+coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]
+countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]
 # ******************************************************
 ```
+
 ```{r}
 
 # Function to save generic plots
 saveplot <- function(plot, name) {
   # Function to save the plots
   ggsave(
-    filename =
-      glue("C:/Users/kesha/Documents/Eva_TotalRNASeq/{name}.png"),
+    filename = glue(adult_spfVsd7_spf_path,"/{name}.png"),
     plot = plot,
     dpi = 300,
     width = 25,
@@ -164,17 +175,20 @@ saveplot <- function(plot, name) {
     units = "in"
   )
 }
-
 ```
 
 ```{r}
+
+```
+
+```{r DESeq Analysis}
+
 # Sanity Check for DDS
 all(rownames(coldata) %in% colnames(countsmatrix))
 ncol(countsmatrix) == nrow(coldata)
 dim(countsmatrix)
-```
 
-```{r}
+
 ## Creating the DESeq Data set Object
 dds_infected <- DESeqDataSetFromMatrix(
   countData = countsmatrix,
@@ -182,12 +196,11 @@ dds_infected <- DESeqDataSetFromMatrix(
   design = ~condition
 )
 nrow(dds_infected)
-
 ```
 
 ```{r}
 keep <- rowSums(counts(dds_infected)) > 10
-dds_infected <- dds_infected[keep,]
+dds_infected <- dds_infected[keep, ]
 nrow(dds_infected)
 
 
@@ -206,10 +219,10 @@ rownames(sampleDistMatrix) <- vsd$Sample_Name
 colnames(sampleDistMatrix) <- vsd$Sample_Name
 colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 (EuclideanDistanceHeatmap <- pheatmap(sampleDistMatrix,
-                                      clustering_distance_rows = sampleDists,
-                                      clustering_distance_cols = sampleDists,
-                                      main = "Sample-to-Sample Euclidean Distance of Samples",
-                                      col = colors
+  clustering_distance_rows = sampleDists,
+  clustering_distance_cols = sampleDists,
+  main = "Sample-to-Sample Euclidean Distance of Samples",
+  col = colors
 ))
 
 ### Poisson Distance between Samples
@@ -219,10 +232,10 @@ rownames(samplePoisDistMatrix) <- dds_infected$Sample_Name
 colnames(samplePoisDistMatrix) <- dds_infected$Sample_Name
 colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 (poisson_dist_plot <- pheatmap(samplePoisDistMatrix,
-                               clustering_distance_rows = poisd$dd,
-                               clustering_distance_cols = poisd$dd,
-                               main = "Sample-to-Sample Poisson Distance of Samples",
-                               col = colors
+  clustering_distance_rows = poisd$dd,
+  clustering_distance_cols = poisd$dd,
+  main = "Sample-to-Sample Poisson Distance of Samples",
+  col = colors
 ))
 ```
 
@@ -231,8 +244,8 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 
 ### Functions for Plot aethetics and saving PCA Plots
 color_values <- c(
-  "red", "red", "red", "red", "red", "red", "red","red", "red", "red", "red",
-   "red", "red", "blue", "red", "red","black", "black",  "red", "blue"
+  "red", "red", "red", "red", "red", "red", "red", "red", "red", "red", "red",
+  "red", "red", "blue", "red", "red", "black", "black", "red", "blue"
 )
 # the basic set of common aesthetic settings for PCA plots,
 theme.my.own <- list(
@@ -241,16 +254,16 @@ theme.my.own <- list(
   coord_fixed(),
   scale_y_continuous(
     breaks = seq(-20, 20, 5),
-    sec.axis = sec_axis(~. * 1,
-                        labels = NULL,
-                        breaks = NULL
+    sec.axis = sec_axis(~ . * 1,
+      labels = NULL,
+      breaks = NULL
     )
   ),
   scale_x_continuous(
     breaks = seq(-20, 20, 5),
-    sec.axis = sec_axis(~. * 1,
-                        labels = NULL,
-                        breaks = NULL
+    sec.axis = sec_axis(~ . * 1,
+      labels = NULL,
+      breaks = NULL
     )
   ),
   theme_classic(),
@@ -281,7 +294,7 @@ plotPCA_local <- function(object,
   # select the ntop genes by variance
   select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
   # perform a PCA on the data in assay(x) for the selected genes
-  pca <- prcomp(t(assay(object)[select,]))
+  pca <- prcomp(t(assay(object)[select, ]))
   # summary(pca)
   # the contribution to the total variance for each component
   percentVar <- pca$sdev^2 / sum(pca$sdev^2)
@@ -324,7 +337,7 @@ savingFunction <- function(plotname, metadatacolumn) {
   # Function to save the PCA plots
   ggsave(
     filename =
-      glue("C:/Users/kesha/Documents/Eva_TotalRNASeq/PCAplot_{metadatacolumn}.png"),
+      glue(adult_spfVsd7_spf_path, "/PCAplot_{metadatacolumn}.png"),
     plot = plotname,
     dpi = 300,
     width = 10,
@@ -360,7 +373,7 @@ rv <- rowVars(assay(vsd))
 ntop <- 500
 # select the ntop genes by variance
 select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
-df1 <- t(assay(vsd)[select,])
+df1 <- t(assay(vsd)[select, ])
 
 res.pca <- PCA(df1, graph = FALSE, scale.unit = FALSE)
 summary.PCA(res.pca)
@@ -370,32 +383,29 @@ fviz_screeplot(res.pca, addlabels = TRUE)
 
 eig.val <- get_eigenvalue(res.pca)
 eig.val
-
-
 ```
 
 ```{r fig.width=8}
 var <- get_pca_var(res.pca)
 # fviz_pca_var(res.pca, repel = TRUE)
-# 
-head(var$cos2,25)
+#
+head(var$cos2, 25)
 # library("corrplot")
 # corrplot(var$cos2, is.corr = TRUE, diag = TRUE, )
-
 ```
 
 ```{r}
 ## Genes + PCA Biplots
 
 fviz_pca_biplot(res.pca,
-                repel = TRUE,
-                #gradient.cols = c("gray","pink", "blue", "yellow", "green", "red", "black")
+  repel = TRUE,
+  # gradient.cols = c("gray","pink", "blue", "yellow", "green", "red", "black")
 )
 
 heat.colors <- brewer.pal(6, "RdYlBu")
 fviz_pca_var(res.pca,
-             col.var = "contrib", repel = TRUE,
-             gradient.cols = c("Gray", "blue", "pink","yellow", "orange", "green", "red", "black"),
+  col.var = "contrib", repel = TRUE,
+  gradient.cols = c("Gray", "blue", "pink", "yellow", "orange", "green", "red", "black"),
 )
 
 # Contributions of variables to PC2
@@ -403,7 +413,6 @@ fviz_contrib(res.pca, choice = "var", axes = 2, top = 25)
 #
 # # Contributions of variables to PC1
 fviz_contrib(res.pca, choice = "var", axes = 1, top = 25)
-
 ```
 ```{r}
 ## Hierarchical Clustering
@@ -421,9 +430,9 @@ head(rld_cor) ## check the output of cor(), make note of the rownames and colnam
 ### Plot heatmap
 heat.colors <- brewer.pal(6, "RdYlBu")
 (Hclust_plot <- pheatmap(rld_cor,
-                         color = heat.colors,
-                         main = "Heirarchical Clustering of Samples - Correlation Matrix"
-                         # filename = 'C:/Users/kesha/Documents/Eva_TotalRNASeq/Hclust_plot.tiff'
+  color = heat.colors,
+  main = "Heirarchical Clustering of Samples - Correlation Matrix"
+  # filename = 'C:/Users/kesha/Documents/Eva_TotalRNASeq/Hclust_plot.tiff'
 ))
 # Hclust_plot
 ```
@@ -436,13 +445,14 @@ dds1_infected <- DESeq(dds_infected)
 # str(dds1)
 ### Building the results table
 res_infected <- results(dds1_infected,
-                        contrast = c("condition", "adult", "d7")
+  contrast = c("condition", "adult", "d7")
 )
 
 resdf_infected <- as.data.frame(res_infected) # convert the results table to a df
 head(resdf_infected, 20)
 
-write.csv(resdf_infected, file = "C:/Users/kesha/Documents/Eva_TotalRNASeq/results_DGE.csv")
+
+write.csv(resdf_infected, file = results_path)
 ```
 ## MA Plot
 
@@ -767,7 +777,7 @@ Need to filter these results to accommodate better the heat maps and also volcan
 ### with tighter constraints (all genes together!)
 
 ```{r}
-sigs1df_infected <- resdf_infected[(resdf_infected$baseMean > 15000) & (abs(resdf_infected$log2FoldChange) >  2) & (resdf_infected$pvalue < 0.05), ]
+sigs1df_infected <- resdf_infected[(resdf_infected$baseMean > 15000) & (abs(resdf_infected$log2FoldChange) > 2) & (resdf_infected$pvalue < 0.05), ]
 mat1 <- counts(dds_infected, normalized = TRUE)[(sigs1df_infected$symbol), ]
 mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
@@ -816,39 +826,39 @@ write.csv(GO_UpRegdf_infected, "C:/Users/kesha/Documents/Eva_TotalRNASeq/GO_UpRe
 ```
 
 ```{r fig.height=12}
-GO_UPReg_Barplot_infected <- plot(barplot(GO_UPRegResults_infected, 
-                                          showCategory = 20, 
-                                          font.size = 25,
-                                          title = "InfectedVsControl Up Regulated",
-                                          #label_format = 40
-                                          ))
+GO_UPReg_Barplot_infected <- plot(barplot(GO_UPRegResults_infected,
+  showCategory = 20,
+  font.size = 25,
+  title = "InfectedVsControl Up Regulated",
+  # label_format = 40
+))
 saveplot(GO_UPReg_Barplot_infected, "GO_UPReg_Barplot_infected")
 ```
 
 ```{r fig.height=10}
-GO_UPReg_Dotplot_infected <- plot(dotplot(GO_UPRegResults_infected, 
-                                          showCategory = 20, 
-                                          font.size = 30,
-                                          title = "InfectedVsControl Up Regulated",
-                                          #label_format = 60
-                                          ))
-#GO_UPReg_Dotplot_infected1 <- GO_UPReg_Dotplot_infected + scale_y_discrete(labels=function(y) str_wrap(y, width=40))
+GO_UPReg_Dotplot_infected <- plot(dotplot(GO_UPRegResults_infected,
+  showCategory = 20,
+  font.size = 30,
+  title = "InfectedVsControl Up Regulated",
+  # label_format = 60
+))
+# GO_UPReg_Dotplot_infected1 <- GO_UPReg_Dotplot_infected + scale_y_discrete(labels=function(y) str_wrap(y, width=40))
 saveplot(GO_UPReg_Dotplot_infected, "GO_UPReg_Dotplot_infected")
 ```
 
 ```{r fig.height=10, fig.width=12}
-GO_UPReg_Cnetplot_infected <- plot(cnetplot(GO_UPRegResults_infected, 
-                                            showCategory = 13, 
-                                          font.size = 25,
-                                          label_format = 75
-                                          ))
+GO_UPReg_Cnetplot_infected <- plot(cnetplot(GO_UPRegResults_infected,
+  showCategory = 13,
+  font.size = 25,
+  label_format = 75
+))
 saveplot(GO_UPReg_Cnetplot_infected, "GO_UPReg_Cnetplot_infected")
 ```
 
 ### Upset Plot
 
 ```{r fig.height= 8, fig.width=12}
-GO_UPReg_Upsetplot <- plot( upsetplot(GO_UPRegResults_infected))
+GO_UPReg_Upsetplot <- plot(upsetplot(GO_UPRegResults_infected))
 saveplot(GO_UPReg_Upsetplot, "GO_UPReg_Upsetplot")
 ```
 
@@ -890,8 +900,10 @@ head(GO_DOWNRegdf_infected)
 ```
 
 ```{r}
-write.csv(GO_DOWNRegdf_infected,
-          "C:/Users/kesha/Documents/Eva_TotalRNASeq/GO_DOWNReg_results.csv")
+write.csv(
+  GO_DOWNRegdf_infected,
+  "C:/Users/kesha/Documents/Eva_TotalRNASeq/GO_DOWNReg_results.csv"
+)
 ```
 
 ```{r}
@@ -907,10 +919,10 @@ saveplot(GO_DOWNReg_Dotplot_infected, "GO_DOWNReg_Dotplot_infected")
 
 ```{r }
 GO_DOWNReg_Cnetplot_infected <- plot(cnetplot(GO_DOWNRegResults_infected,
-                                                showCategory = 13,
-                                                circular = FALSE,
-                                                #colorEdge = TRUE
-                                                ))
+  showCategory = 13,
+  circular = FALSE,
+  # colorEdge = TRUE
+))
 
 saveplot(GO_DOWNReg_Cnetplot_infected, "GO_DOWNReg_Cnetplot_infected")
 ```
@@ -922,7 +934,7 @@ association between genes and gene sets. It emphasizes the gene
 overlapping among different gene sets.
 
 ```{r}
-GO_DOWNReg_Upsetplot <- plot( upsetplot(GO_DOWNRegResults_infected))
+GO_DOWNReg_Upsetplot <- plot(upsetplot(GO_DOWNRegResults_infected))
 saveplot(GO_DOWNReg_Upsetplot, "GO_DOWNReg_Upsetplot")
 ```
 
