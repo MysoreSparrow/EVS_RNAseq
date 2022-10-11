@@ -1,12 +1,12 @@
 ---
-title: "Eva_RNAseq - adult spF vs day7 spF"
+title: "Eva_RNAseq - day7 spF vs adult spF"
 author: "Keshav Prasad Gubbi"
 date: "`r Sys.Date()`"
 output: 
   html_document: 
     toc: yes
     fig_width: 10
-    fig_height: 12
+    fig_height: 10
     fig_caption: yes
     number_sections: yes
     keep_md: yes
@@ -57,19 +57,23 @@ suppressPackageStartupMessages(library("FactoMineR"))
 suppressPackageStartupMessages(library("factoextra"))
 suppressPackageStartupMessages(library("pcaExplorer"))
 ```
-```{r Path Declarations }
+
+```{r File Path Declarations }
+
 Eva_project_path <- file.path("C:/Users/kesha/Documents/R/Eva_TotalRNASeq/")
-
 adult_spfVsd7_spf_path <- file.path(Eva_project_path, "adult_spfVsd7_spf")
-
 countsmatrix_path <- file.path(Eva_project_path,"featurecounts_Eva_totalRNAseq.csv")
 
-samples_path <- file.path(
-  Eva_project_path,
-  "Samples_eva.csv"
-)
+samples_path <- file.path(Eva_project_path,"Samples_eva.csv")
+SignificantGenes_path <- file.path(adult_spfVsd7_spf_path, "/SignificantGenes.csv")
+results_path <- file.path(adult_spfVsd7_spf_path, "/results_DGE.csv")
+UpGeneList_path <- file.path(adult_spfVsd7_spf_path, "/UpGeneList_DGE.csv")
+DownGeneList_path <- file.path(adult_spfVsd7_spf_path, "/DownGeneList_DGE.csv")
 
-results_path = file.path(adult_spfVsd7_spf_path, "/results_DGE.csv")
+GO_UPReg_path <- file.path(adult_spfVsd7_spf_path, "/GO_UPReg_results.csv")
+GO_DOWNReg_path <- file.path(adult_spfVsd7_spf_path, "/GO_DOWNReg_results.csv")
+
+
 
 ```
 
@@ -190,26 +194,26 @@ dim(countsmatrix)
 
 
 ## Creating the DESeq Data set Object
-dds_infected <- DESeqDataSetFromMatrix(
+dds <- DESeqDataSetFromMatrix(
   countData = countsmatrix,
   colData = coldata,
   design = ~condition
 )
-nrow(dds_infected)
+nrow(dds)
 ```
 
 ```{r}
-keep <- rowSums(counts(dds_infected)) > 10
-dds_infected <- dds_infected[keep, ]
-nrow(dds_infected)
+keep <- rowSums(counts(dds)) > 10
+dds <- dds[keep, ]
+nrow(dds)
 
 
 ## Applying VST transformation
-vsd <- vst(dds_infected, blind = FALSE)
+vsd <- vst(dds, blind = FALSE)
 # head(assay(vsd), 3)
 colData(vsd)
 vsd_coldata <- colData(vsd)
-dds_infected <- estimateSizeFactors(dds_infected)
+dds <- estimateSizeFactors(dds)
 
 ### Euclidean Distance between samples
 
@@ -226,10 +230,10 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 ))
 
 ### Poisson Distance between Samples
-poisd <- PoissonDistance(t(counts(dds_infected))) # raw counts or unnormalised data
+poisd <- PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
 samplePoisDistMatrix <- as.matrix(poisd$dd)
-rownames(samplePoisDistMatrix) <- dds_infected$Sample_Name
-colnames(samplePoisDistMatrix) <- dds_infected$Sample_Name
+rownames(samplePoisDistMatrix) <- dds$Sample_Name
+colnames(samplePoisDistMatrix) <- dds$Sample_Name
 colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 (poisson_dist_plot <- pheatmap(samplePoisDistMatrix,
   clustering_distance_rows = poisd$dd,
@@ -244,7 +248,7 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 
 ### Functions for Plot aethetics and saving PCA Plots
 color_values <- c(
-  "red", "red", "red", "red", "red", "red", "red", "red", "red", "red", "red",
+  "red", "red", "red", "black", "black", "black", "red", "red", "red", "red", "red",
   "red", "red", "blue", "red", "red", "black", "black", "red", "blue"
 )
 # the basic set of common aesthetic settings for PCA plots,
@@ -346,13 +350,13 @@ savingFunction <- function(plotname, metadatacolumn) {
   )
 }
 
-pcaData_infected <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"), returnData = T)
-pcaData_infected
-percentVar_infected <- percentvar_calculation(pcaData_infected)
-percentVar_infected
+pcaData <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"), returnData = T)
+pcaData
+percentVar <- percentvar_calculation(pcaData)
+percentVar
 
 (PCAplot_vst <- ggplot(
-  pcaData_infected,
+  pcaData,
   aes(
     x = PC1,
     y = PC2,
@@ -360,8 +364,8 @@ percentVar_infected
     label = Sample_Name
   )
 ) +
-  xlab(paste0("PC1: ", percentVar_infected[1], "% variance")) +
-  ylab(paste0("PC2: ", percentVar_infected[2], "% variance")) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
   ggtitle("PCA") +
   scale_colour_manual(values = color_values) +
   theme.my.own)
@@ -418,7 +422,7 @@ fviz_contrib(res.pca, choice = "var", axes = 1, top = 25)
 ## Hierarchical Clustering
 
 ### applying rlog Transformation
-rld <- rlog(dds_infected, blind = FALSE)
+rld <- rlog(dds, blind = FALSE)
 head(assay(rld), 3)
 
 ### Extract the rlog matrix from the object
@@ -441,36 +445,31 @@ heat.colors <- brewer.pal(6, "RdYlBu")
 # DGE Results
 
 ### Running the differential expression pipeline
-dds1_infected <- DESeq(dds_infected)
+dds1 <- DESeq(dds)
 # str(dds1)
 ### Building the results table
-res_infected <- results(dds1_infected,
-  contrast = c("condition", "adult", "d7")
+res <- results(dds1,
+  contrast = c("condition", "d7", "adult")
 )
 
-resdf_infected <- as.data.frame(res_infected) # convert the results table to a df
-head(resdf_infected, 20)
+resdf <- as.data.frame(res) # convert the results table to a df
+head(resdf, 20)
 
 
-write.csv(resdf_infected, file = results_path)
-```
-## MA Plot
-
-```{r}
-plotMA_res_infected <- plotMA(res_infected, ylim = c(-2, 2))
+write.csv(resdf, file = results_path)
 ```
 
 ### Histogram of p-values
 
 ```{r}
-hist(res_infected$pvalue, breaks = 50, col = "grey50", border = "blue")
+hist(res$pvalue, breaks = 50, col = "grey50", border = "blue")
 ```
 ```{r}
-head(resdf_infected)
+head(resdf)
 ```
 ```{r}
-resdf_infected <- tibble::rownames_to_column(resdf_infected, "symbol")
-gn <- resdf_infected$symbol
+resdf <- tibble::rownames_to_column(resdf, "symbol")
+gn <- resdf$symbol
 # Mapping the Symbol to ENTREZ ID
 entrez <- mapIds(
   org.Mm.eg.db,
@@ -486,48 +485,23 @@ ensembl_id <- mapIds(
   keytype = "SYMBOL",
   multiVals = "first"
 )
-resdf_infected$entrez <- entrez
-resdf_infected$ensemblID <- ensembl_id
+resdf$entrez <- entrez
+resdf$ensemblID <- ensembl_id
 ```
 
 Omit NA values from symbol and respective rows!
 
 ```{r}
-resdf_infected <- resdf_infected %>% filter(!is.na(symbol) & !is.na(entrez))
-nrow(resdf_infected)
-```
-
-
-## Effect of Transformations on Variance
-
--   These set of plots depict the standard deviation of transformed data
-    (across samples), against mean.
-
-### Based on Shifted Log Transformation
-
-```{r}
-ntd <- normTransform(dds_infected)
-meanSdPlot(assay(ntd))
-```
-
-### Based on Rlog Transformation
-
-```{r}
-meanSdPlot(assay(rld))
-```
-
-### Based on Variance Stabilizing Transformation
-
-```{r}
-meanSdPlot(assay(vsd))
+resdf <- resdf %>% filter(!is.na(symbol) & !is.na(entrez))
+nrow(resdf)
 ```
 # Volcano Plots
 
 ## Volcano Plots based on Enhanced Volcano
 
 ```{r fig.height= 10, fig.width= 10}
-p1 <- EnhancedVolcano(resdf_infected,
-  lab = resdf_infected$symbol,
+p1 <- EnhancedVolcano(resdf,
+  lab = resdf$symbol,
   x = "log2FoldChange",
   y = "pvalue",
   xlab = bquote(~ Log[2] ~ "FoldChange"),
@@ -568,7 +542,7 @@ p1 <- EnhancedVolcano(resdf_infected,
   xlab(expression(DownRegulated %<->% UpRegulated))
 )
 ggsave(
-  filename = "C:/Users/kesha/Documents/Eva_TotalRNASeq/Volcano1_L2fcVsPvalue.png",
+  filename = file.path(adult_spfVsd7_spf_path,"/Vol1_L2fcVsPvalue.png"),
   plot = volcano1,
   dpi = 300,
   width = 5,
@@ -579,8 +553,8 @@ ggsave(
 ## volcano Plot of Log2FC vs Padj
 
 ```{r fig.height= 10, fig.width= 10}
-p2 <- EnhancedVolcano(resdf_infected,
-  lab = resdf_infected$symbol,
+p2 <- EnhancedVolcano(resdf,
+  lab = resdf$symbol,
   x = "log2FoldChange",
   y = "padj",
   xlab = bquote(~ Log[2] ~ "FoldChange"),
@@ -622,7 +596,7 @@ p2 <- EnhancedVolcano(resdf_infected,
   xlab(expression(DownRegulated %<->% UpRegulated))
 )
 ggsave(
-  filename = "C:/Users/kesha/Documents/Eva_TotalRNASeq/Volcano2_L2fcVsPadj.png",
+  filename = file.path(adult_spfVsd7_spf_path,"/Vol2_L2fcVsPadj.png"),
   plot = volcano2,
   dpi = 300,
   width = 10,
@@ -634,91 +608,85 @@ ggsave(
 ## Significant Differentially Expressed Genes
 
 ```{r}
-resdf_infected$diffexpressed <- "NS"
+resdf$diffexpressed <- "NS"
 # if log2Foldchange > 1.0 and pvalue < 0.05, set as "UP"
-resdf_infected$diffexpressed[resdf_infected$log2FoldChange > 1.0 & resdf_infected$pvalue < 0.05] <- "UP"
+resdf$diffexpressed[resdf$log2FoldChange > 1.0 & resdf$pvalue < 0.05] <- "UP"
 # if log2Foldchange < -1.0 and pvalue < 0.05, set as "DOWN"
-resdf_infected$diffexpressed[resdf_infected$log2FoldChange < -1.0 & resdf_infected$pvalue < 0.05] <- "DOWN"
+resdf$diffexpressed[resdf$log2FoldChange < -1.0 & resdf$pvalue < 0.05] <- "DOWN"
 # Create a new column "delabel" to de, that will contain the name of genes differentially expressed (NA in case they are not)
-resdf_infected$delabel <- NA
-resdf_infected$delabel[resdf_infected$diffexpressed != "NS"] <- resdf_infected$symbol[resdf_infected$diffexpressed != "NS"]
+resdf$delabel <- NA
+resdf$delabel[resdf$diffexpressed != "NS"] <- resdf$symbol[resdf$diffexpressed != "NS"]
 ```
 
 ### Arrive at relevant genes by imposing thresholds.
 
 ```{r}
-sigsdf_infected <- resdf_infected[(abs(resdf_infected$log2FoldChange) > 1) & (resdf_infected$pvalue < 0.05), ]
-nrow(sigsdf_infected)
+sigsdf <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
+nrow(sigsdf)
 ```
 ### Gender Genes Removed from Table
 
 ```{r}
-sigsdf_infected <- filter(
-  sigsdf_infected,
+sigsdf <- filter(
+  sigsdf,
   symbol != "Xist",
   symbol != "Jpx",
   symbol != "Ftx",
   symbol != "Tsx",
   symbol != "Cnbp2"
 )
-nrow(sigsdf_infected)
-# head(sigsdf_infected)
+nrow(sigsdf)
+# head(sigsdf)
 ```
 
 Therefore, gender genes werent so much in play in terms of significance!
 
 ```{r}
-write.csv(sigsdf_infected, "C:/Users/kesha/Documents/Eva_TotalRNASeq/SignificantGenes_IvC.csv")
+write.csv(sigsdf, SignificantGenes_path)
 ```
 ### Significant Differentialy Expressed Genes (SDEG)
 
 ```{r}
-head(sigsdf_infected)
+head(sigsdf)
 ```
 
 
 ### Number of Genes from different strains that are contributing to UP/DOWN regulation.
 
 ```{r}
-sigsdf_infected_UP <- sigsdf_infected[(sigsdf_infected$log2FoldChange) > 1, ] # UP Regulation Table
-sigsdf_infected_DOWN <- sigsdf_infected[(sigsdf_infected$log2FoldChange) < -1, ] # DOWN Regulation Table
-nrow(sigsdf_infected_UP)
-nrow(sigsdf_infected_DOWN)
+sigsdf_UP <- sigsdf[(sigsdf$log2FoldChange) > 1, ] # UP Regulation Table
+sigsdf_DOWN <- sigsdf[(sigsdf$log2FoldChange) < -1, ] # DOWN Regulation Table
+nrow(sigsdf_UP)
+nrow(sigsdf_DOWN)
 ```
 
 
 
 ```{r}
 # sorted based on highest Log2FC value
-UpGene_infected <- sigsdf_infected_UP[order(-sigsdf_infected_UP$log2FoldChange, decreasing = TRUE), ]$symbol
-DownGene_infected <- sigsdf_infected_DOWN[order(-sigsdf_infected_DOWN$log2FoldChange, decreasing = TRUE), ]$symbol
+UpGene <- sigsdf_UP[order(-sigsdf_UP$log2FoldChange, decreasing = TRUE), ]$symbol
+DownGene <- sigsdf_DOWN[order(-sigsdf_DOWN$log2FoldChange, decreasing = TRUE), ]$symbol
 ```
 ```{r}
-write.csv(
-  UpGene_infected,
-  "C:/Users/kesha/Documents/Eva_TotalRNASeq/UpGenelist.csv"
-)
-write.csv(
-  DownGene_infected,
-  "C:/Users/kesha/Documents/Eva_TotalRNASeq/DownGenelist.csv"
-)
+write.csv(UpGene,UpGeneList_path)
+write.csv(DownGene,DownGeneList_path)
 ```
 
 ### Top20 UP Genes and Top20 DOWN Genes
 
-#### UpGene_infected
+#### UpGene
 ```{r}
-head(UpGene_infected, 20)
+head(UpGene, 20)
 ```
 
-#### DownGene_infected
+#### DownGene
 ```{r}
-head(DownGene_infected, 20)
+head(DownGene, 20)
 ```
 
 ```{r}
 # Determining the significant Genes based on Log2FC and pvalue thresholds
-sigs2df_infected <- resdf_infected[(abs(resdf_infected$log2FoldChange) > 1) & (resdf_infected$pvalue < 0.05), ]
+sigs2df <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
 ```
 
 ## Z-score based Gene Heatmaps
@@ -726,15 +694,15 @@ sigs2df_infected <- resdf_infected[(abs(resdf_infected$log2FoldChange) > 1) & (r
 ### with Whole table (all genes together!)
 
 ```{r}
-# mat <- counts(dds2_infected, normalized = TRUE)[rownames(sigsdf_infected),]
-mat <- counts(dds_infected, normalized = TRUE)[(sigsdf_infected$symbol), ]
+# mat <- counts(dds2, normalized = TRUE)[rownames(sigsdf),]
+mat <- counts(dds, normalized = TRUE)[(sigsdf$symbol), ]
 mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
 colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 head(mat.zs)
 ```
 
 ```{r}
-mat2 <- counts(dds_infected, normalized = TRUE)[(sigsdf_infected$symbol), ]
+mat2 <- counts(dds, normalized = TRUE)[(sigsdf$symbol), ]
 mat2.zs <- t(apply(mat2, 1, scale)) # Calculating the zscore for each row
 colnames(mat2.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 head(mat2.zs)
@@ -752,16 +720,16 @@ newHP <- Heatmap(mat2.zs,
   column_names_gp = grid::gpar(fontsize = 12),
   # width = unit(8, "in"),
   # height = unit(8, "in")
-  row_labels = sigs2df_infected[rownames(mat2.zs), ]$symbol
+  row_labels = sigs2df[rownames(mat2.zs), ]$symbol
 )
 newHP
 ```
-```{r fig.height= 500, fig.width= 10}
+```{r fig.height= 50, fig.width= 10}
 # LongHeatMap_Allgenes <- Heatmap(mat2.zs,
 #   cluster_columns = TRUE,
 #   cluster_rows = TRUE,
 #   column_labels = colnames(mat2.zs),
-#   row_labels = sigsdf_infected$symbol,
+#   row_labels = sigsdf$symbol,
 #   name = "All DE Genes",
 #   show_row_names = TRUE,
 #   use_raster = TRUE,
@@ -777,8 +745,8 @@ Need to filter these results to accommodate better the heat maps and also volcan
 ### with tighter constraints (all genes together!)
 
 ```{r}
-sigs1df_infected <- resdf_infected[(resdf_infected$baseMean > 15000) & (abs(resdf_infected$log2FoldChange) > 2) & (resdf_infected$pvalue < 0.05), ]
-mat1 <- counts(dds_infected, normalized = TRUE)[(sigs1df_infected$symbol), ]
+sigs1df <- resdf[(resdf$baseMean > 15000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
 mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 head(mat1.zs)
@@ -790,7 +758,7 @@ Heatmap(mat1.zs,
   cluster_rows = TRUE,
   column_labels = colnames(mat1.zs),
   name = "DE Genes",
-  row_labels = sigs1df_infected$symbol,
+  row_labels = sigs1df$symbol,
   column_names_gp = grid::gpar(fontsize = 18),
   row_names_gp = grid::gpar(fontsize = 20)
 )
@@ -801,8 +769,8 @@ Heatmap(mat1.zs,
 
 ### GO over-representation analysis for UP Regulated Genes
 ```{r}
-UPgene_ENS_ID <- (sigsdf_infected_UP$ensemblID)
-GO_UPRegResults_infected <- enrichGO(
+UPgene_ENS_ID <- (sigsdf_UP$ensemblID)
+GO_UPRegResults <- enrichGO(
   gene = UPgene_ENS_ID,
   OrgDb = "org.Mm.eg.db",
   keyType = "ENSEMBL",
@@ -815,50 +783,47 @@ GO_UPRegResults_infected <- enrichGO(
 ```
 
 ```{r}
-GO_UpRegdf_infected <- as.data.frame(GO_UPRegResults_infected)
-```
-```{r}
-head(GO_UpRegdf_infected, 20)
-```
+GO_UpRegdf <- as.data.frame(GO_UPRegResults)
 
-```{r}
-write.csv(GO_UpRegdf_infected, "C:/Users/kesha/Documents/Eva_TotalRNASeq/GO_UpReg_results.csv")
+head(GO_UpRegdf, 20)
+
+write.csv(GO_UpRegdf, GO_UPReg_path)
 ```
 
 ```{r fig.height=12}
-GO_UPReg_Barplot_infected <- plot(barplot(GO_UPRegResults_infected,
+GO_UPReg_Barplot <- plot(barplot(GO_UPRegResults,
   showCategory = 20,
   font.size = 25,
-  title = "InfectedVsControl Up Regulated",
+  title = " Up Regulated",
   # label_format = 40
 ))
-saveplot(GO_UPReg_Barplot_infected, "GO_UPReg_Barplot_infected")
+saveplot(GO_UPReg_Barplot, "GO_UPReg_Barplot")
 ```
 
 ```{r fig.height=10}
-GO_UPReg_Dotplot_infected <- plot(dotplot(GO_UPRegResults_infected,
+GO_UPReg_Dotplot <- plot(dotplot(GO_UPRegResults,
   showCategory = 20,
   font.size = 30,
-  title = "InfectedVsControl Up Regulated",
+  title = " Up Regulated",
   # label_format = 60
 ))
-# GO_UPReg_Dotplot_infected1 <- GO_UPReg_Dotplot_infected + scale_y_discrete(labels=function(y) str_wrap(y, width=40))
-saveplot(GO_UPReg_Dotplot_infected, "GO_UPReg_Dotplot_infected")
+# GO_UPReg_Dotplot1 <- GO_UPReg_Dotplot + scale_y_discrete(labels=function(y) str_wrap(y, width=40))
+saveplot(GO_UPReg_Dotplot, "GO_UPReg_Dotplot")
 ```
 
 ```{r fig.height=10, fig.width=12}
-GO_UPReg_Cnetplot_infected <- plot(cnetplot(GO_UPRegResults_infected,
-  showCategory = 13,
+GO_UPReg_Cnetplot <- plot(cnetplot(GO_UPRegResults,
+  showCategory = 15,
   font.size = 25,
   label_format = 75
 ))
-saveplot(GO_UPReg_Cnetplot_infected, "GO_UPReg_Cnetplot_infected")
+saveplot(GO_UPReg_Cnetplot, "GO_UPReg_Cnetplot")
 ```
 
 ### Upset Plot
 
 ```{r fig.height= 8, fig.width=12}
-GO_UPReg_Upsetplot <- plot(upsetplot(GO_UPRegResults_infected))
+GO_UPReg_Upsetplot <- plot(upsetplot(GO_UPRegResults))
 saveplot(GO_UPReg_Upsetplot, "GO_UPReg_Upsetplot")
 ```
 
@@ -867,14 +832,14 @@ saveplot(GO_UPReg_Upsetplot, "GO_UPReg_Upsetplot")
 The heatplot is similar to cnetplot, while displaying the relationships as a heatmap. The gene-concept network may become too complicated if user want to show a large number significant terms. The heatplot can simplify the result and more easy to identify expression patterns.
 
 ```{r fig.height= 12, fig.width=15}
-GO_UPReg_Heatplot <- plot(heatplot(GO_UPRegResults_infected, label_format = 150))
+GO_UPReg_Heatplot <- plot(heatplot(GO_UPRegResults, label_format = 150))
 saveplot(GO_UPReg_Heatplot, "GO_UPReg_Heatplot")
 ```
 
 ### Tree Plot of Enriched Terms
 
 ```{r fig.height= 10, fig.width=15}
-edox2 <- pairwise_termsim(GO_UPRegResults_infected)
+edox2 <- pairwise_termsim(GO_UPRegResults)
 GO_UPReg_enrichtreeplot <- plot(treeplot(edox2))
 saveplot(GO_UPReg_enrichtreeplot, "GO_UPReg_enrichtreeplot")
 ```
@@ -884,8 +849,8 @@ saveplot(GO_UPReg_enrichtreeplot, "GO_UPReg_enrichtreeplot")
 ### GO over-representation analysis for DOWN Regulated Genes
 
 ```{r}
-DOWNgene_ENS_ID <- (sigsdf_infected_DOWN$ensemblID)
-GO_DOWNRegResults_infected <- enrichGO(
+DOWNgene_ENS_ID <- (sigsdf_DOWN$ensemblID)
+GO_DOWNRegResults <- enrichGO(
   gene = DOWNgene_ENS_ID,
   OrgDb = "org.Mm.eg.db",
   keyType = "ENSEMBL",
@@ -895,36 +860,33 @@ GO_DOWNRegResults_infected <- enrichGO(
   qvalueCutoff = 0.05,
   readable = TRUE
 )
-GO_DOWNRegdf_infected <- as.data.frame(GO_DOWNRegResults_infected)
-head(GO_DOWNRegdf_infected)
 ```
 
 ```{r}
-write.csv(
-  GO_DOWNRegdf_infected,
-  "C:/Users/kesha/Documents/Eva_TotalRNASeq/GO_DOWNReg_results.csv"
-)
+GO_DOWNRegdf <- as.data.frame(GO_DOWNRegResults)
+head(GO_DOWNRegdf)
+write.csv(GO_DOWNRegdf,GO_DOWNReg_path)
 ```
 
 ```{r}
-GO_DOWNReg_Barplot_infected <- plot(barplot(GO_DOWNRegResults_infected))
-saveplot(GO_DOWNReg_Barplot_infected, "GO_DOWNReg_Barplot_infected")
+GO_DOWNReg_Barplot <- plot(barplot(GO_DOWNRegResults))
+saveplot(GO_DOWNReg_Barplot, "GO_DOWNReg_Barplot")
 ```
 
 ```{r}
-GO_DOWNReg_Dotplot_infected <- plot(dotplot(GO_DOWNRegResults_infected))
+GO_DOWNReg_Dotplot <- plot(dotplot(GO_DOWNRegResults))
 
-saveplot(GO_DOWNReg_Dotplot_infected, "GO_DOWNReg_Dotplot_infected")
+saveplot(GO_DOWNReg_Dotplot, "GO_DOWNReg_Dotplot")
 ```
 
 ```{r }
-GO_DOWNReg_Cnetplot_infected <- plot(cnetplot(GO_DOWNRegResults_infected,
+GO_DOWNReg_Cnetplot <- plot(cnetplot(GO_DOWNRegResults,
   showCategory = 13,
   circular = FALSE,
   # colorEdge = TRUE
 ))
 
-saveplot(GO_DOWNReg_Cnetplot_infected, "GO_DOWNReg_Cnetplot_infected")
+saveplot(GO_DOWNReg_Cnetplot, "GO_DOWNReg_Cnetplot")
 ```
 
 ### Upset Plot
@@ -934,21 +896,21 @@ association between genes and gene sets. It emphasizes the gene
 overlapping among different gene sets.
 
 ```{r}
-GO_DOWNReg_Upsetplot <- plot(upsetplot(GO_DOWNRegResults_infected))
+GO_DOWNReg_Upsetplot <- plot(upsetplot(GO_DOWNRegResults))
 saveplot(GO_DOWNReg_Upsetplot, "GO_DOWNReg_Upsetplot")
 ```
 
 ### Heat Plot
 
 ```{r}
-GO_DOWNReg_Heatplot <- plot(heatplot(GO_DOWNRegResults_infected))
+GO_DOWNReg_Heatplot <- plot(heatplot(GO_DOWNRegResults))
 saveplot(GO_DOWNReg_Heatplot, "GO_DOWNReg_Heatplot")
 ```
 
 ### Tree Plot of Enriched Terms
 
 ```{r}
-edox1 <- pairwise_termsim(GO_DOWNRegResults_infected)
+edox1 <- pairwise_termsim(GO_DOWNRegResults)
 GO_DOWNReg_enrichtreeplot <- plot(treeplot(edox1))
 saveplot(GO_DOWNReg_enrichtreeplot, "GO_DOWNReg_enrichtreeplot")
 ```
