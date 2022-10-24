@@ -62,9 +62,9 @@ suppressPackageStartupMessages(library("pcaExplorer"))
 
 Eva_project_path <- file.path("C:/Users/kesha/Documents/R/Eva_TotalRNASeq/")
 adult_spfVsd7_spf_path <- file.path(Eva_project_path, "adult_spfVsd7_spf")
-countsmatrix_path <- file.path(Eva_project_path,"featurecounts_Eva_totalRNAseq.csv")
+countsmatrix_path <- file.path(Eva_project_path, "featurecounts_Eva_totalRNAseq.csv")
 
-samples_path <- file.path(Eva_project_path,"Samples_eva.csv")
+samples_path <- file.path(Eva_project_path, "Samples_eva.csv")
 SignificantGenes_path <- file.path(adult_spfVsd7_spf_path, "/SignificantGenes.csv")
 results_path <- file.path(adult_spfVsd7_spf_path, "/results_DGE.csv")
 UpGeneList_path <- file.path(adult_spfVsd7_spf_path, "/UpGeneList_DGE.csv")
@@ -72,20 +72,45 @@ DownGeneList_path <- file.path(adult_spfVsd7_spf_path, "/DownGeneList_DGE.csv")
 
 GO_UPReg_path <- file.path(adult_spfVsd7_spf_path, "/GO_UPReg_results.csv")
 GO_DOWNReg_path <- file.path(adult_spfVsd7_spf_path, "/GO_DOWNReg_results.csv")
-
-
-
 ```
 
 ```{r counts Matrix processing}
 ## Input the Count Matrix
 
-countsmatrix <- read.csv(countsmatrix_path, stringsAsFactors = TRUE)
+countsmatrix <- read.csv(countsmatrix_path)
 
 ### Clean up the Count Matrix
 rownames(countsmatrix) <- countsmatrix[, 2]
 # converting first column of gene ID into rownames, to be used for sanity check later
+```
+```{r GenderGenes Filtering}
+gendergenes_biomart <- data.frame(read.csv("~/R/Eva_TotalRNASeq/20221017_y-chromosomal genes_biomart.txt", stringsAsFactors = TRUE))
 
+nrow(gendergenes_biomart)
+
+#na.omit(gendergenes_biomart)
+
+## Remove rows with only empty cells
+gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", 1, all), ]                
+nrow(gendergenes_biomart)
+
+## Removal of Gender Genes from ENSEMBL ID column itself
+## Use %in% to identify which elements from the first data frame are not contained in the second data frame, then pass the resulting logical vector to the first data frame to subset.
+countsmatrix <- countsmatrix[(!countsmatrix$EnsemblID %in% gendergenes_biomart$Gene.stable.ID), ,
+             drop = FALSE]
+nrow(countsmatrix)
+```
+```{r}
+countsmatrix <- countsmatrix %>% filter(
+  countsmatrix$EnsemblID != "ENSMUSG00000086503",
+  countsmatrix$EnsemblID != "ENSMUSG00000097571",
+  countsmatrix$EnsemblID != "ENSMUSG00000086370",
+  countsmatrix$EnsemblID != "ENSMUSG00000031329",
+  countsmatrix$EnsemblID != "ENSMUSG00000030057"
+)
+```
+
+```{r}
 # It is IMPORTANT to keep the names of the genes in the rownames
 countsmatrix <- subset(countsmatrix, select = -c(X, EnsemblID)) # dropping the X column
 
@@ -171,7 +196,7 @@ countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]
 saveplot <- function(plot, name) {
   # Function to save the plots
   ggsave(
-    filename = glue(adult_spfVsd7_spf_path,"/{name}.png"),
+    filename = glue(adult_spfVsd7_spf_path, "/{name}.png"),
     plot = plot,
     dpi = 300,
     width = 25,
@@ -180,11 +205,6 @@ saveplot <- function(plot, name) {
   )
 }
 ```
-
-```{r}
-
-```
-
 ```{r DESeq Analysis}
 
 # Sanity Check for DDS
@@ -542,7 +562,7 @@ p1 <- EnhancedVolcano(resdf,
   xlab(expression(DownRegulated %<->% UpRegulated))
 )
 ggsave(
-  filename = file.path(adult_spfVsd7_spf_path,"/Vol1_L2fcVsPvalue.png"),
+  filename = file.path(adult_spfVsd7_spf_path, "/Vol1_L2fcVsPvalue.png"),
   plot = volcano1,
   dpi = 300,
   width = 5,
@@ -596,7 +616,7 @@ p2 <- EnhancedVolcano(resdf,
   xlab(expression(DownRegulated %<->% UpRegulated))
 )
 ggsave(
-  filename = file.path(adult_spfVsd7_spf_path,"/Vol2_L2fcVsPadj.png"),
+  filename = file.path(adult_spfVsd7_spf_path, "/Vol2_L2fcVsPadj.png"),
   plot = volcano2,
   dpi = 300,
   width = 10,
@@ -668,8 +688,8 @@ UpGene <- sigsdf_UP[order(-sigsdf_UP$log2FoldChange, decreasing = TRUE), ]$symbo
 DownGene <- sigsdf_DOWN[order(-sigsdf_DOWN$log2FoldChange, decreasing = TRUE), ]$symbol
 ```
 ```{r}
-write.csv(UpGene,UpGeneList_path)
-write.csv(DownGene,DownGeneList_path)
+write.csv(UpGene, UpGeneList_path)
+write.csv(DownGene, DownGeneList_path)
 ```
 
 ### Top20 UP Genes and Top20 DOWN Genes
@@ -708,6 +728,10 @@ colnames(mat2.zs) <- coldata$Sample_Name # need to provide correct sample names 
 head(mat2.zs)
 # pheatmap(mat2.zs, cluster_cols = TRUE, cluster_rows = FALSE, show_rownames = FALSE)
 ```
+```{r}
+# write.csv(mat2.zs, Eva_project_path)
+```
+
 ```{r}
 newHP <- Heatmap(mat2.zs,
   cluster_columns = TRUE,
@@ -800,7 +824,7 @@ GO_UPReg_Barplot <- plot(barplot(GO_UPRegResults,
 saveplot(GO_UPReg_Barplot, "GO_UPReg_Barplot")
 ```
 
-```{r fig.height=10}
+```{r fig.height=12}
 GO_UPReg_Dotplot <- plot(dotplot(GO_UPRegResults,
   showCategory = 20,
   font.size = 30,
@@ -865,7 +889,7 @@ GO_DOWNRegResults <- enrichGO(
 ```{r}
 GO_DOWNRegdf <- as.data.frame(GO_DOWNRegResults)
 head(GO_DOWNRegdf)
-write.csv(GO_DOWNRegdf,GO_DOWNReg_path)
+write.csv(GO_DOWNRegdf, GO_DOWNReg_path)
 ```
 
 ```{r}
@@ -879,7 +903,7 @@ GO_DOWNReg_Dotplot <- plot(dotplot(GO_DOWNRegResults))
 saveplot(GO_DOWNReg_Dotplot, "GO_DOWNReg_Dotplot")
 ```
 
-```{r }
+```{r fig.height=10, fig.width=10}
 GO_DOWNReg_Cnetplot <- plot(cnetplot(GO_DOWNRegResults,
   showCategory = 13,
   circular = FALSE,
