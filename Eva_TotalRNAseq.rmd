@@ -13,7 +13,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = TRUE, warning = FALSE)
 ```
 
 ```{r Package Declarations}
@@ -56,24 +56,50 @@ suppressPackageStartupMessages(library("stats"))
 suppressPackageStartupMessages(library("FactoMineR"))
 suppressPackageStartupMessages(library("factoextra"))
 suppressPackageStartupMessages(library("pcaExplorer"))
+suppressPackageStartupMessages(library("here"))
 ```
 
 ```{r File Path Declarations }
+here::i_am("Eva_TotalRNASeq.rmd")
+here()
 
-Eva_project_path <- file.path("C:/Users/kesha/Documents/R/Eva_TotalRNASeq/")
-adult_spfVsd7_spf_path <- file.path(Eva_project_path, "adult_spfVsd7_spf")
+# Project Path
+Eva_project_path <- here()
+
+# Provide the countsmatrix and the samples
 countsmatrix_path <- file.path(Eva_project_path, "featurecounts_Eva_totalRNAseq.csv")
-
 samples_path <- file.path(Eva_project_path, "Samples_eva.csv")
-SignificantGenes_path <- file.path(adult_spfVsd7_spf_path, "/SignificantGenes.csv")
-results_path <- file.path(adult_spfVsd7_spf_path, "/results_DGE.csv")
-UpGeneList_path <- file.path(adult_spfVsd7_spf_path, "/UpGeneList_DGE.csv")
-DownGeneList_path <- file.path(adult_spfVsd7_spf_path, "/DownGeneList_DGE.csv")
 
-GO_UPReg_path <- file.path(adult_spfVsd7_spf_path, "/GO_UPReg_results.csv")
-GO_DOWNReg_path <- file.path(adult_spfVsd7_spf_path, "/GO_DOWNReg_results.csv")
+# Folder Paths for Different Comparisons
+#adult_spfVsd7_spf_path <- file.path(here(), "adult_spfVsd7_spf")
+d7_GFVsd7_spF_path <- file.path(here(), "d7_GFVsd7_spF")
+# Day5_UninfectedVSInfected_path <- file.path(here(), "Day5_UninfectedVSInfected")
+# Day_3UninfectedVS5Uninfected_path <- file.path(here(), "Day_3UninfectedVS5Uninfected")
+# Day_3InfectedVS5Infected_path <- file.path(here(), "Day_3InfectedVS5Infected")
+
+# for UninfectedVSInfected is the volcano plot notation: for Deseq2 results, the infected is Nr.
+# and uninfected is Dr.
 ```
+```{r}
+# Comparison_Path! NEEDS TOBE UPDATED FOR EVERY NEW COMPARISON BEING RUN for pipeline!
+# Comparison_Path <- adult_spfVsd7_spf_path
+Comparison_Path <- d7_GFVsd7_spF_path
+setwd(Comparison_Path)
+# Also Create a comparison Variable: That Could be used later for all other comparison titles using a glue Variable.
+# Comparison <- "Day3_Uninfected VS Infected"
+Comparison <- "Day7 GermFree VS Day7 spF"
 
+# Paths for Different Plots and Tables for each comparison. To be updated for each respective 
+# comparison that is being run for
+SignificantGenes_path <- file.path(Comparison_Path, glue( "/SignificantGenes_{Comparison}.csv"))
+results_path <- file.path(Comparison_Path, glue("/results_DGE_{Comparison}.csv"))
+UpGeneList_path <- file.path(Comparison_Path, glue("/UpGeneList_DGE_{Comparison}.csv"))
+DownGeneList_path <- file.path(Comparison_Path, glue("/DownGeneList_DGE_{Comparison}.csv"))
+GO_UPReg_path <- file.path(Comparison_Path, glue("/GO_UPReg_results_{Comparison}.csv"))
+GO_UPReg_TCell_path <- file.path(Comparison_Path, glue("/GOTerms_Tcell_{Comparison}.csv"))
+GO_DOWNReg_path <- file.path(Comparison_Path, glue("/GO_DOWNReg_results_{Comparison}.csv"))
+termSim_values_path <- file.path(Comparison_Path, glue("/termSim_values_{Comparison}.csv"))
+```
 ```{r counts Matrix processing}
 ## Input the Count Matrix
 
@@ -181,28 +207,29 @@ head(coldata)
 colnames(countsmatrix) <- coldata$Sample_Name
 ```
 ### Reduce larger Matrix to smaller one - based on comparison
-```{r}
+```{r The Processed Input is Ready!}
 
 # *****************Now to the comparisons*************
 # d7 spF vs adult spF
-coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]
-countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]
+# coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]
+# countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]
 # ******************************************************
+# d7 GF vs adult spF
+coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ]
+countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)]
 ```
 
-```{r}
-
+```{r Save Plot}
 # Function to save generic plots
 saveplot <- function(plot, name) {
   # Function to save the plots
-  ggsave(
-    filename = glue(adult_spfVsd7_spf_path, "/{name}.png"),
-    plot = plot,
-    dpi = 300,
-    width = 25,
-    height = 25,
-    units = "in"
-  )
+  ggsave(filename = file.path(Comparison_Path, glue("/{name}_{Comparison}.png")),
+        plot = plot,
+        dpi = 300,
+        width = 25,
+        height = 25,
+        units = "in")
+  dev.off()
 }
 ```
 ```{r DESeq Analysis}
@@ -217,26 +244,22 @@ dim(countsmatrix)
 dds <- DESeqDataSetFromMatrix(
   countData = countsmatrix,
   colData = coldata,
-  design = ~condition
+  design = ~MouseType
+  #design = ~condition
 )
-nrow(dds)
 ```
 
 ```{r}
 keep <- rowSums(counts(dds)) > 10
 dds <- dds[keep, ]
 nrow(dds)
-
-
 ## Applying VST transformation
 vsd <- vst(dds, blind = FALSE)
 # head(assay(vsd), 3)
 colData(vsd)
 vsd_coldata <- colData(vsd)
 dds <- estimateSizeFactors(dds)
-
 ### Euclidean Distance between samples
-
 sampleDists <- dist(t(assay(vsd)))
 sampleDistMatrix <- as.matrix(sampleDists)
 rownames(sampleDistMatrix) <- vsd$Sample_Name
@@ -245,10 +268,9 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 (EuclideanDistanceHeatmap <- pheatmap(sampleDistMatrix,
   clustering_distance_rows = sampleDists,
   clustering_distance_cols = sampleDists,
-  main = "Sample-to-Sample Euclidean Distance of Samples",
+  main = glue("Sample-to-Sample Euclidean Distance of Samples: {Comparison}"),
   col = colors
 ))
-
 ### Poisson Distance between Samples
 poisd <- PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
 samplePoisDistMatrix <- as.matrix(poisd$dd)
@@ -258,55 +280,39 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 (poisson_dist_plot <- pheatmap(samplePoisDistMatrix,
   clustering_distance_rows = poisd$dd,
   clustering_distance_cols = poisd$dd,
-  main = "Sample-to-Sample Poisson Distance of Samples",
+  main = glue("Sample-to-Sample Poisson Distance of Samples: {Comparison}"),
   col = colors
 ))
+
+#savingFunction(poisson_dist_plot, "poisson_dist_plot")
+```
+## PCA Plot
+```{r PCA Plot Aesthetics}
+# PCA Plot
+### Functions for Plot aethetics and saving PCA Plots
+color_values <- c("black", "black", "red", "red", "red", "red", "black")
+# the basic set of common aesthetic settings for PCA plots,
+theme.my.own <- list(theme_bw(),
+                      geom_point(size = 3),
+                      coord_fixed(),
+                      scale_y_continuous(breaks = seq(-100, 100, 10), 
+                                         sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)),
+                      scale_x_continuous(breaks = seq(-100, 100, 10), 
+                                         sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)),
+                      theme_classic(),
+                      geom_hline(yintercept = 0, color = "gray", size = 1),
+                      geom_vline(xintercept = 0, color = "gray", size = 1),
+                      theme(text = element_text(size = 15),
+                            axis.text = element_text(size = 15),
+                            legend.position = "bottom",
+                            aspect.ratio = 1),
+                      # geom_text(size = 4, hjust = 0, vjust = 0)
+                      geom_text_repel(size = 5, min.segment.length = 0.5)
+)
 ```
 
-```{r}
-# PCA Plot
-
-### Functions for Plot aethetics and saving PCA Plots
-color_values <- c(
-  "red", "red", "red", "black", "black", "black", "red", "red", "red", "red", "red",
-  "red", "red", "blue", "red", "red", "black", "black", "red", "blue"
-)
-# the basic set of common aesthetic settings for PCA plots,
-theme.my.own <- list(
-  theme_bw(),
-  geom_point(size = 3),
-  coord_fixed(),
-  scale_y_continuous(
-    breaks = seq(-20, 20, 5),
-    sec.axis = sec_axis(~ . * 1,
-      labels = NULL,
-      breaks = NULL
-    )
-  ),
-  scale_x_continuous(
-    breaks = seq(-20, 20, 5),
-    sec.axis = sec_axis(~ . * 1,
-      labels = NULL,
-      breaks = NULL
-    )
-  ),
-  theme_classic(),
-  geom_hline(yintercept = 0, color = "gray", size = 1),
-  geom_vline(xintercept = 0, color = "gray", size = 1),
-  theme(
-    text = element_text(size = 15),
-    axis.text = element_text(size = 15),
-    legend.position = "bottom",
-    aspect.ratio = 1
-  ),
-  # geom_text(size = 4, hjust = 0, vjust = 0)
-  geom_text_repel(size = 5, min.segment.length = 0.5)
-)
-
-
+```{r PCA Plot Calculation}
 ## Calculating all PCA Values
-
-
 plotPCA_local <- function(object,
                           intgroup = "condition",
                           ntop = 500,
@@ -345,12 +351,8 @@ plotPCA_local <- function(object,
     return(d)
   }
 }
-
-
 ## PCA Plot with VST Data
-
 ### Function for calculating percentvar
-
 percentvar_calculation <- function(pcaData_variable) {
   # function to calculate percentvar for different variables
   percentvar_variable <- round(100 * attr(pcaData_variable, "percentVar"), digits = 3)
@@ -361,7 +363,7 @@ savingFunction <- function(plotname, metadatacolumn) {
   # Function to save the PCA plots
   ggsave(
     filename =
-      glue(adult_spfVsd7_spf_path, "/PCAplot_{metadatacolumn}.png"),
+      glue(Comparison_Path, "/PCAplot_{metadatacolumn}.png"),
     plot = plotname,
     dpi = 300,
     width = 10,
@@ -371,27 +373,34 @@ savingFunction <- function(plotname, metadatacolumn) {
 }
 
 pcaData <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"), returnData = T)
+#pcaData <- plotPCA_local(vsd, intgroup = c("MouseType", "Sample_Name"), returnData = T)
 pcaData
 percentVar <- percentvar_calculation(pcaData)
 percentVar
+```
 
-(PCAplot_vst <- ggplot(
-  pcaData,
-  aes(
-    x = PC1,
-    y = PC2,
-    color = Sample_Name,
-    label = Sample_Name
-  )
-) +
+```{r PC Plot: PC1 vs PC2, fig.height=8, fig.width=8}
+(PCAplot_vst <- ggplot(pcaData, aes(x = PC1, y = PC2, color = Sample_Name, label = Sample_Name)) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-  ggtitle("PCA") +
+  ggtitle(glue("PCA: {Comparison}")) +
   scale_colour_manual(values = color_values) +
   theme.my.own)
-savingFunction(PCAplot_vst, metadatacolumn = "condition")
+savingFunction(PCAplot_vst, metadatacolumn = glue("PC1vsPC2_{Comparison}"))
 
-
+```
+```{r PC Plot: PC3 vs PC4, fig.height=8, fig.width=8}
+(PCAplot_pc34 <- ggplot(
+  pcaData,
+  aes(x = PC3,y = PC4, color = Sample_Name, label = Sample_Name)) +
+  xlab(paste0("PC3: ", percentVar[3], "% variance")) +
+  ylab(paste0("PC4: ", percentVar[4], "% variance")) +
+  ggtitle(glue("PCA: {Comparison}")) +
+  scale_colour_manual(values = color_values) +
+  theme.my.own)
+savingFunction(PCAplot_pc34, metadatacolumn = glue("PC3vsPC4_{Comparison}"))
+```
+```{r FactoExtra}
 # calculate the variance for top 500 gene
 rv <- rowVars(assay(vsd))
 ntop <- 500
@@ -406,76 +415,60 @@ summary.PCA(res.pca)
 fviz_screeplot(res.pca, addlabels = TRUE)
 
 eig.val <- get_eigenvalue(res.pca)
-eig.val
-```
-
-```{r fig.width=8}
 var <- get_pca_var(res.pca)
 # fviz_pca_var(res.pca, repel = TRUE)
-#
-head(var$cos2, 25)
-# library("corrplot")
-# corrplot(var$cos2, is.corr = TRUE, diag = TRUE, )
 ```
-
-```{r}
+```{r BiPlots, fig.width=8, fig.height=8}
 ## Genes + PCA Biplots
-
-fviz_pca_biplot(res.pca,
-  repel = TRUE,
-  # gradient.cols = c("gray","pink", "blue", "yellow", "green", "red", "black")
-)
-
 heat.colors <- brewer.pal(6, "RdYlBu")
-fviz_pca_var(res.pca,
+
+## Genes + PCA Biplots
+(Genes_Biplot <- fviz_pca_biplot(res.pca, repel = TRUE))
+savingFunction(Genes_Biplot, "Genes_Biplot")
+
+(Genes_contributions_Biplot <- fviz_pca_var(res.pca,
   col.var = "contrib", repel = TRUE,
   gradient.cols = c("Gray", "blue", "pink", "yellow", "orange", "green", "red", "black"),
-)
+))
+savingFunction(Genes_contributions_Biplot, "Genes_contributions_Biplot")
 
 # Contributions of variables to PC2
-fviz_contrib(res.pca, choice = "var", axes = 2, top = 25)
-#
+
+(top25_genes_dim2 <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 25))
+savingFunction(top25_genes_dim2, "top25_genes_dim2")
 # # Contributions of variables to PC1
-fviz_contrib(res.pca, choice = "var", axes = 1, top = 25)
+(top25_genes_dim1 <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 25))
+savingFunction(top25_genes_dim1, "top25_genes_dim1")
 ```
 ```{r}
 ## Hierarchical Clustering
-
 ### applying rlog Transformation
 rld <- rlog(dds, blind = FALSE)
 head(assay(rld), 3)
-
 ### Extract the rlog matrix from the object
 rld_mat <- assay(rld) # assay() is function from the "SummarizedExperiment" package that was loaded when you loaded DESeq2
 ### Compute pairwise correlation values
 rld_cor <- cor(rld_mat) ## cor() is a base R function
 head(rld_cor) ## check the output of cor(), make note of the rownames and colnames
-
 ### Plot heatmap
 heat.colors <- brewer.pal(6, "RdYlBu")
 (Hclust_plot <- pheatmap(rld_cor,
   color = heat.colors,
-  main = "Heirarchical Clustering of Samples - Correlation Matrix"
+  main = glue("Heirarchical Clustering of Samples - {Comparison}")
   # filename = 'C:/Users/kesha/Documents/Eva_TotalRNASeq/Hclust_plot.tiff'
 ))
 # Hclust_plot
 ```
 
-```{r}
+```{r DGE Results}
 # DGE Results
-
 ### Running the differential expression pipeline
 dds1 <- DESeq(dds)
-# str(dds1)
 ### Building the results table
-res <- results(dds1,
-  contrast = c("condition", "d7", "adult")
-)
-
+# res <- results(dds1, contrast = c("condition", "d7", "adult"))
+res <- results(dds1, contrast = c("MouseType", "SPF", "GF"))
 resdf <- as.data.frame(res) # convert the results table to a df
 head(resdf, 20)
-
-
 write.csv(resdf, file = results_path)
 ```
 
@@ -483,9 +476,6 @@ write.csv(resdf, file = results_path)
 
 ```{r}
 hist(res$pvalue, breaks = 50, col = "grey50", border = "blue")
-```
-```{r}
-head(resdf)
 ```
 ```{r}
 resdf <- tibble::rownames_to_column(resdf, "symbol")
@@ -527,7 +517,7 @@ p1 <- EnhancedVolcano(resdf,
   xlab = bquote(~ Log[2] ~ "FoldChange"),
   pCutoff = 0.05,
   FCcutoff = 1.0,
-  title = "DE genes: Log2FoldChange Vs -Log10 Pvalue",
+  title = glue("DE genes: Log2FoldChange Vs -Log10 Pvalue: {Comparison}"),
   subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
   pointSize = 2.0,
   labSize = 5.5,
@@ -540,7 +530,7 @@ p1 <- EnhancedVolcano(resdf,
   legendIconSize = 4.0,
   drawConnectors = T,
   widthConnectors = 0.75,
-  max.overlaps = 8,
+  max.overlaps = 10,
   axisLabSize = 22
 )
 (volcano1 <- p1 + scale_y_continuous(
@@ -562,7 +552,7 @@ p1 <- EnhancedVolcano(resdf,
   xlab(expression(DownRegulated %<->% UpRegulated))
 )
 ggsave(
-  filename = file.path(adult_spfVsd7_spf_path, "/Vol1_L2fcVsPvalue.png"),
+  filename = file.path(Comparison_Path, glue("/V1_L2fcVsPvalue_{Comparison}.png")),
   plot = volcano1,
   dpi = 300,
   width = 5,
@@ -581,7 +571,7 @@ p2 <- EnhancedVolcano(resdf,
   ylab = bquote(~ Log[10] ~ "Padj"),
   pCutoff = 0.05,
   FCcutoff = 1.0,
-  title = "DE genes: Log2FoldChange Vs -Log10 Padj",
+  title = glue("DE genes: Log2FoldChange Vs -Log10 Padj: {Comparison}"),
   subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
   pointSize = 2.0,
   labSize = 5.0,
@@ -594,7 +584,7 @@ p2 <- EnhancedVolcano(resdf,
   legendIconSize = 4.0,
   drawConnectors = T,
   widthConnectors = 0.75,
-  max.overlaps = 8,
+  max.overlaps = 10,
   axisLabSize = 22
 )
 (volcano2 <- p2 + scale_y_continuous(
@@ -616,7 +606,7 @@ p2 <- EnhancedVolcano(resdf,
   xlab(expression(DownRegulated %<->% UpRegulated))
 )
 ggsave(
-  filename = file.path(adult_spfVsd7_spf_path, "/Vol2_L2fcVsPadj.png"),
+  filename =  file.path(Comparison_Path, glue("/V2_L2fcVsPadj_{Comparison}.png")),
   plot = volcano2,
   dpi = 300,
   width = 10,
@@ -643,33 +633,14 @@ resdf$delabel[resdf$diffexpressed != "NS"] <- resdf$symbol[resdf$diffexpressed !
 ```{r}
 sigsdf <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
 nrow(sigsdf)
-```
-### Gender Genes Removed from Table
-
-```{r}
-sigsdf <- filter(
-  sigsdf,
-  symbol != "Xist",
-  symbol != "Jpx",
-  symbol != "Ftx",
-  symbol != "Tsx",
-  symbol != "Cnbp2"
-)
-nrow(sigsdf)
-# head(sigsdf)
-```
-
-Therefore, gender genes werent so much in play in terms of significance!
-
-```{r}
 write.csv(sigsdf, SignificantGenes_path)
 ```
-### Significant Differentialy Expressed Genes (SDEG)
-
-```{r}
-head(sigsdf)
+### Gender Genes Removed from Table
+```{r Verify if any Gender Genes still left}
+genedergenes_df <- sigsdf[is.element(sigsdf$symbol, c("Xist","Jpx","Ftx","Tsx","Cnbp2")), ]
+genedergenes_df
 ```
-
+Therefore, gender genes werent so much in play in terms of significance!
 
 ### Number of Genes from different strains that are contributing to UP/DOWN regulation.
 
@@ -679,9 +650,6 @@ sigsdf_DOWN <- sigsdf[(sigsdf$log2FoldChange) < -1, ] # DOWN Regulation Table
 nrow(sigsdf_UP)
 nrow(sigsdf_DOWN)
 ```
-
-
-
 ```{r}
 # sorted based on highest Log2FC value
 UpGene <- sigsdf_UP[order(-sigsdf_UP$log2FoldChange, decreasing = TRUE), ]$symbol
@@ -703,65 +671,74 @@ head(UpGene, 20)
 ```{r}
 head(DownGene, 20)
 ```
+## Z-score based Gene Heatmaps
 
 ```{r}
 # Determining the significant Genes based on Log2FC and pvalue thresholds
 sigs2df <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
 ```
-
-## Z-score based Gene Heatmaps
-
 ### with Whole table (all genes together!)
 
 ```{r}
-# mat <- counts(dds2, normalized = TRUE)[rownames(sigsdf),]
-mat <- counts(dds, normalized = TRUE)[(sigsdf$symbol), ]
+# mat <- counts(dds1, normalized = TRUE)[rownames(sigsdf),]
+mat <- counts(dds1, normalized = TRUE)[(sigsdf$symbol) %in% rownames(counts(dds1)), ]
 mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
 colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 head(mat.zs)
 ```
 
 ```{r}
-mat2 <- counts(dds, normalized = TRUE)[(sigsdf$symbol), ]
+mat2 <- counts(dds, normalized = TRUE)[(sigsdf$symbol) %in% rownames(counts(dds)), ]
 mat2.zs <- t(apply(mat2, 1, scale)) # Calculating the zscore for each row
 colnames(mat2.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 head(mat2.zs)
-# pheatmap(mat2.zs, cluster_cols = TRUE, cluster_rows = FALSE, show_rownames = FALSE)
+# # pheatmap(mat2.zs, cluster_cols = TRUE, cluster_rows = FALSE, show_rownames = FALSE)
 ```
-```{r}
-# write.csv(mat2.zs, Eva_project_path)
+```{r fig.height=8, fig.width=8}
+AllGenes_Heatmap <- Heatmap(mat2.zs,
+                              cluster_columns = TRUE,
+                              cluster_rows = TRUE,
+                              column_labels = colnames(mat2.zs),
+                              name = glue("DE Genes- {Comparison}"),
+                              show_row_names = FALSE,
+                              use_raster = TRUE,
+                              raster_quality = 5,
+                              column_names_gp = grid::gpar(fontsize = 12),
+                              #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
+                               heatmap_legend_param = list(legend_direction = "horizontal", 
+                                                           legend_width = unit(5, "cm"))
+                             )
+png(file = file.path(Comparison_Path, glue("/DEGenes_heatmap1_{Comparison}.png") ),
+    width = 1000, height = 1000, units = "px", pointsize = 12,
+    bg = "white", res = NA, family = "", restoreConsole = TRUE,
+    type = "windows",
+    symbolfamily = "default"
+    )
+draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
+dev.off()
+#savingFunction(AllGenes_Heatmap, "AllGenes_Heatmap")
 ```
-
-```{r}
-newHP <- Heatmap(mat2.zs,
-  cluster_columns = TRUE,
-  cluster_rows = TRUE,
-  column_labels = colnames(mat2.zs),
-  name = "DE Genes Heatmap",
-  show_row_names = FALSE,
-  use_raster = TRUE,
-  raster_quality = 5,
-  column_names_gp = grid::gpar(fontsize = 12),
-  # width = unit(8, "in"),
-  # height = unit(8, "in")
-  row_labels = sigs2df[rownames(mat2.zs), ]$symbol
-)
-newHP
-```
-```{r fig.height= 50, fig.width= 10}
+```{r fig.height= 500, fig.width= 10}
 # LongHeatMap_Allgenes <- Heatmap(mat2.zs,
-#   cluster_columns = TRUE,
-#   cluster_rows = TRUE,
-#   column_labels = colnames(mat2.zs),
-#   row_labels = sigsdf$symbol,
-#   name = "All DE Genes",
-#   show_row_names = TRUE,
-#   use_raster = TRUE,
-#   raster_quality = 5,
-#   column_names_gp = grid::gpar(fontsize = 12),
+#                                 cluster_columns = TRUE,
+#                                 cluster_rows = TRUE,
+#                                 column_labels = colnames(mat2.zs),
+#                                 row_labels = rownames(mat2.zs),#sigsdf[rownames(mat2.zs), ]$symbol
+#                                 name = "All Genes",
+#                                 show_row_names = TRUE,
+#                                 use_raster = TRUE,
+#                                 raster_quality = 5,
+#                                 column_names_gp = grid::gpar(fontsize = 12),
+#                                 #row_labels = sigsdf[rownames(mat2.zs), ]$symbol
 # )
-# LongHeatMap_Allgenes
-# saveplot(LongHeatMap_Allgenes, "LongHeatMap_Allgenes")
+# png(file = file.path(Comparison_Path, glue("/DEGenes_Longheatmap_{Comparison}.png") ),
+#     width = 800, height = 800, units = "px", pointsize = 12,
+#     bg = "white", res = NA, family = "", restoreConsole = TRUE,
+#     type = "windows",
+#     symbolfamily = "default"
+#     )
+# draw(LongHeatMap_Allgenes, heatmap_legend_side = "bottom")
+# dev.off()
 ```
 
 Need to filter these results to accommodate better the heat maps and also volcano plots
@@ -769,7 +746,7 @@ Need to filter these results to accommodate better the heat maps and also volcan
 ### with tighter constraints (all genes together!)
 
 ```{r}
-sigs1df <- resdf[(resdf$baseMean > 15000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+sigs1df <- resdf[(resdf$baseMean > 500) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
 mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
@@ -777,15 +754,26 @@ head(mat1.zs)
 ```
 
 ```{r fig.height=12}
-Heatmap(mat1.zs,
-  cluster_columns = TRUE,
-  cluster_rows = TRUE,
-  column_labels = colnames(mat1.zs),
-  name = "DE Genes",
-  row_labels = sigs1df$symbol,
-  column_names_gp = grid::gpar(fontsize = 18),
-  row_names_gp = grid::gpar(fontsize = 20)
-)
+Tightconstraints_Heatmap <- Heatmap(mat1.zs,
+                                    cluster_columns = TRUE,
+                                    cluster_rows = TRUE,
+                                    column_labels = colnames(mat1.zs),
+                                    name = glue("DE Genes - {Comparison}"),
+                                    row_labels = rownames(mat1.zs),
+                                    column_names_gp = grid::gpar(fontsize = 18),
+                                    row_names_gp = grid::gpar(fontsize = 20),
+                                    heatmap_legend_param = list(legend_direction = "horizontal", 
+                                                                legend_width = unit(5, "cm")
+                                                                )
+                                    )
+png(file = file.path(Comparison_Path, glue("/DEGenes_heatmap2_{Comparison}.png") ),
+    width = 1000, height = 1000, units = "px", pointsize = 12,
+    bg = "white", res = NA, family = "", restoreConsole = TRUE,
+    type = "windows",
+    symbolfamily = "default"
+    )
+draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
+dev.off()
 ```
 # GO Terms with clusterProfiler
 
@@ -808,18 +796,23 @@ GO_UPRegResults <- enrichGO(
 
 ```{r}
 GO_UpRegdf <- as.data.frame(GO_UPRegResults)
-
 head(GO_UpRegdf, 20)
-
 write.csv(GO_UpRegdf, GO_UPReg_path)
 ```
-
+```{r T-Cell Based GO Terms}
+# create a Cytokine based GO term Data frame by extracting the rows that at least partially matches to the word Cytokine
+GO_UpRegdf_TCell <- GO_UpRegdf[str_detect(GO_UpRegdf$Description, "T cell"), ]
+#Warning: I wont be able to detect GO terms that do not have the word cytokines mentioned in their description.
+#
+head(GO_UpRegdf_TCell, 20)
+write.csv(GO_UpRegdf_TCell, GO_UPReg_TCell_path)
+```
 ```{r fig.height=12}
 GO_UPReg_Barplot <- plot(barplot(GO_UPRegResults,
   showCategory = 20,
   font.size = 25,
   title = " Up Regulated",
-  # label_format = 40
+  label_format = 50
 ))
 saveplot(GO_UPReg_Barplot, "GO_UPReg_Barplot")
 ```
@@ -829,7 +822,7 @@ GO_UPReg_Dotplot <- plot(dotplot(GO_UPRegResults,
   showCategory = 20,
   font.size = 30,
   title = " Up Regulated",
-  # label_format = 60
+  label_format = 50
 ))
 # GO_UPReg_Dotplot1 <- GO_UPReg_Dotplot + scale_y_discrete(labels=function(y) str_wrap(y, width=40))
 saveplot(GO_UPReg_Dotplot, "GO_UPReg_Dotplot")
@@ -867,7 +860,17 @@ edox2 <- pairwise_termsim(GO_UPRegResults)
 GO_UPReg_enrichtreeplot <- plot(treeplot(edox2))
 saveplot(GO_UPReg_enrichtreeplot, "GO_UPReg_enrichtreeplot")
 ```
+```{r}
+termSim_values <- tibble(edox2@termsim)
+termSim_values
+write.csv(termSim_values,termSim_values_path)
+```
 
+```{r fig.height=12, fig.width=12}
+GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE)
+saveplot(GO_UPReg_emapplot, "GO_UPReg_emapplot")
+#dev.off()
+```
 ## GO Terms for Down Regulated Genes
 
 ### GO over-representation analysis for DOWN Regulated Genes
@@ -892,23 +895,33 @@ head(GO_DOWNRegdf)
 write.csv(GO_DOWNRegdf, GO_DOWNReg_path)
 ```
 
-```{r}
-GO_DOWNReg_Barplot <- plot(barplot(GO_DOWNRegResults))
+```{r fig.height=10}
+(GO_DOWNReg_Barplot <- plot(barplot(GO_DOWNRegResults,
+  showCategory = 25,
+  font.size = 15,
+  title = glue("Down Regulated_{Comparison}"),
+  label_format = 40
+  )))
 saveplot(GO_DOWNReg_Barplot, "GO_DOWNReg_Barplot")
 ```
 
-```{r}
-GO_DOWNReg_Dotplot <- plot(dotplot(GO_DOWNRegResults))
+```{r fig.height=10}
+GO_UPReg_Dotplot <- plot(dotplot(GO_DOWNRegResults,
+  showCategory = 25,
+  font.size = 15,
+  title = glue("Down Regulated_{Comparison}"),
+  label_format = 40
+  ))
 
-saveplot(GO_DOWNReg_Dotplot, "GO_DOWNReg_Dotplot")
+#saveplot(GO_DOWNReg_Dotplot, "GO_DOWNReg_Dotplot")
 ```
 
 ```{r fig.height=10, fig.width=10}
-GO_DOWNReg_Cnetplot <- plot(cnetplot(GO_DOWNRegResults,
-  showCategory = 13,
+(GO_DOWNReg_Cnetplot <- plot(cnetplot(GO_DOWNRegResults,
+  showCategory = 10,
   circular = FALSE,
   # colorEdge = TRUE
-))
+)))
 
 saveplot(GO_DOWNReg_Cnetplot, "GO_DOWNReg_Cnetplot")
 ```
