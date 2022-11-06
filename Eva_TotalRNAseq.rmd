@@ -1,5 +1,5 @@
 ---
-title: "Eva_RNAseq - day7 spF vs adult spF"
+title: "Eva_RNAseq Pipeline"
 author: "Keshav Prasad Gubbi"
 date: "`r Sys.Date()`"
 output: 
@@ -71,8 +71,9 @@ countsmatrix_path <- file.path(Eva_project_path, "featurecounts_Eva_totalRNAseq.
 samples_path <- file.path(Eva_project_path, "Samples_eva.csv")
 
 # Folder Paths for Different Comparisons
-#adult_spfVsd7_spf_path <- file.path(here(), "adult_spfVsd7_spf")
-d7_GFVsd7_spF_path <- file.path(here(), "d7_GFVsd7_spF")
+# adult_spfVsd7_spf_path <- file.path(here(), "adult_spfVsd7_spf")
+# d7_GFVsd7_spF_path <- file.path(here(), "d7_GFVsd7_spF")
+adult_GFVsd7_GF_path <- file.path(here(), "adult_GFVsd7_GF")
 # Day5_UninfectedVSInfected_path <- file.path(here(), "Day5_UninfectedVSInfected")
 # Day_3UninfectedVS5Uninfected_path <- file.path(here(), "Day_3UninfectedVS5Uninfected")
 # Day_3InfectedVS5Infected_path <- file.path(here(), "Day_3InfectedVS5Infected")
@@ -83,11 +84,11 @@ d7_GFVsd7_spF_path <- file.path(here(), "d7_GFVsd7_spF")
 ```{r}
 # Comparison_Path! NEEDS TOBE UPDATED FOR EVERY NEW COMPARISON BEING RUN for pipeline!
 # Comparison_Path <- adult_spfVsd7_spf_path
-Comparison_Path <- d7_GFVsd7_spF_path
-setwd(Comparison_Path)
+Comparison_Path <- adult_GFVsd7_GF_path
+#setwd(Comparison_Path)
 # Also Create a comparison Variable: That Could be used later for all other comparison titles using a glue Variable.
 # Comparison <- "Day3_Uninfected VS Infected"
-Comparison <- "Day7 GermFree VS Day7 spF"
+Comparison <- "adult GermFree Vs Day7 GermFree"
 
 # Paths for Different Plots and Tables for each comparison. To be updated for each respective 
 # comparison that is being run for
@@ -124,9 +125,8 @@ nrow(gendergenes_biomart)
 ## Use %in% to identify which elements from the first data frame are not contained in the second data frame, then pass the resulting logical vector to the first data frame to subset.
 countsmatrix <- countsmatrix[(!countsmatrix$EnsemblID %in% gendergenes_biomart$Gene.stable.ID), ,
              drop = FALSE]
-nrow(countsmatrix)
-```
-```{r}
+
+
 countsmatrix <- countsmatrix %>% filter(
   countsmatrix$EnsemblID != "ENSMUSG00000086503",
   countsmatrix$EnsemblID != "ENSMUSG00000097571",
@@ -134,6 +134,7 @@ countsmatrix <- countsmatrix %>% filter(
   countsmatrix$EnsemblID != "ENSMUSG00000031329",
   countsmatrix$EnsemblID != "ENSMUSG00000030057"
 )
+nrow(countsmatrix)
 ```
 
 ```{r}
@@ -215,8 +216,12 @@ colnames(countsmatrix) <- coldata$Sample_Name
 # countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]
 # ******************************************************
 # d7 GF vs adult spF
-coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ]
-countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)]
+# coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ]
+# countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)]
+
+# d7 GF vs adult spF
+coldata <- coldata[c(5, 6, 7, 8, 15, 16, 17), ]
+countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 15, 16, 17)]
 ```
 
 ```{r Save Plot}
@@ -244,8 +249,8 @@ dim(countsmatrix)
 dds <- DESeqDataSetFromMatrix(
   countData = countsmatrix,
   colData = coldata,
-  design = ~MouseType
-  #design = ~condition
+  #design = ~MouseType
+  design = ~condition
 )
 ```
 
@@ -361,14 +366,12 @@ percentvar_calculation <- function(pcaData_variable) {
 
 savingFunction <- function(plotname, metadatacolumn) {
   # Function to save the PCA plots
-  ggsave(
-    filename =
-      glue(Comparison_Path, "/PCAplot_{metadatacolumn}.png"),
-    plot = plotname,
-    dpi = 300,
-    width = 10,
-    height = 10,
-    units = "in"
+  ggsave(filename = glue(Comparison_Path, "/PCAplot_{metadatacolumn}.png"),
+          plot = plotname,
+          dpi = 300,
+          width = 10,
+          height = 10,
+          units = "in"
   )
 }
 
@@ -465,8 +468,8 @@ heat.colors <- brewer.pal(6, "RdYlBu")
 ### Running the differential expression pipeline
 dds1 <- DESeq(dds)
 ### Building the results table
-# res <- results(dds1, contrast = c("condition", "d7", "adult"))
-res <- results(dds1, contrast = c("MouseType", "SPF", "GF"))
+res <- results(dds1, contrast = c("condition", "d7", "adult"))
+#res <- results(dds1, contrast = c("MouseType", "GF", "SPF"))
 resdf <- as.data.frame(res) # convert the results table to a df
 head(resdf, 20)
 write.csv(resdf, file = results_path)
@@ -746,7 +749,7 @@ Need to filter these results to accommodate better the heat maps and also volcan
 ### with tighter constraints (all genes together!)
 
 ```{r}
-sigs1df <- resdf[(resdf$baseMean > 500) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+sigs1df <- resdf[(resdf$baseMean > 15000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
 mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
@@ -868,7 +871,7 @@ write.csv(termSim_values,termSim_values_path)
 
 ```{r fig.height=12, fig.width=12}
 GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE)
-saveplot(GO_UPReg_emapplot, "GO_UPReg_emapplot")
+#saveplot(GO_UPReg_emapplot, "GO_UPReg_emapplot")
 #dev.off()
 ```
 ## GO Terms for Down Regulated Genes
