@@ -158,17 +158,6 @@ saveplot <- function(plot, plotname) {
          plot = plot, dpi = 300, width = 10, height = 10, units = "in")
   dev.off()
 }
-
-# savePCAPlot <- function(plotname, metadatacolumn) {
-#   # Function to save the PCA plots
-#   ggsave(filename = file.path(Comparison_path, glue("/PCAplot_{metadatacolumn}.jpeg")),
-#          plot = plotname,
-#          dpi = 300,
-#          width = 10,
-#          height = 10,
-#          units = "in"
-#   )
-# }
 # **********************DESeq Analysis********************************
 # Sanity Check for DDS
 all(rownames(coldata) %in% colnames(countsmatrix))
@@ -216,8 +205,7 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
                                main = glue("Poisson Distance of Samples: {Comparison}"),
                                col = colors
 ))
-
-#  *************PCA Plot***********************************************
+#  **************************PCA Plot**********************************
 # Functions for Plot aethetics and saving PCA Plots
 color_values <- c("black", "black", "red", "red", "red", "red", "red", "red", "red", "red", "black", "black")
 # The basic set of common aesthetic settings for PCA plots,
@@ -285,6 +273,7 @@ pcaData <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"), returnDa
 pcaData
 percentVar <- percentvar_calculation(pcaData)
 percentVar
+
 # PC Plot: PC1 vs PC2
 (PCAplot_vst <- ggplot(pcaData, aes(x = PC1, y = PC2, color = Sample_Name, label = Sample_Name)) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
@@ -293,3 +282,46 @@ percentVar
   #scale_colour_manual(values = color_values) +
   theme.my.own)
 saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
+
+# PCA Plot : PC3 vs PC4
+(PCAplot_pc34 <- ggplot(
+  pcaData,
+  aes(x = PC3,y = PC4, color = Sample_Name, label = Sample_Name)) +
+  xlab(paste0("PC3: ", percentVar[3], "% variance")) +
+  ylab(paste0("PC4: ", percentVar[4], "% variance")) +
+  ggtitle(glue("PCA: {Comparison}")) +
+  scale_colour_manual(values = color_values) +
+  theme.my.own)
+saveplot(PCAplot_pc34, plotname = "PCA_PC3vsPC4")
+
+# ************************FactoExtra************************
+# calculate the variance for top 500 gene
+
+rv <- rowVars(assay(vsd))
+ntop <- 500
+# select the ntop genes by variance
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+res.pca <- PCA(t(assay(vsd)[select, ]), graph = FALSE, scale.unit = FALSE)
+summary.PCA(res.pca)
+
+# Visualize eigenvalues/variances
+fviz_screeplot(res.pca, addlabels = TRUE)
+eig.val <- get_eigenvalue(res.pca)
+var <- get_pca_var(res.pca)
+
+## Genes + PCA Biplots
+heat.colors <- brewer.pal(6, "RdYlBu")
+## Genes + PCA Biplots
+(Genes_Biplot <- fviz_pca_biplot(res.pca, repel = TRUE))
+saveplot(Genes_Biplot, "Genes_Biplot")
+
+(Genes_contributions_Biplot <- fviz_pca_var(res.pca, col.var = "contrib", repel = TRUE,
+                                            gradient.cols = c("Gray", "blue", "pink", "yellow",
+                                                              "orange", "green", "red", "black")))
+saveplot(Genes_contributions_Biplot, "Genes_contributions_Biplot")
+# Contributions of variables to PC2
+(top25_genes_dim2 <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 25))
+saveplot(top25_genes_dim2, "top25_genes_dim2")
+# # Contributions of variables to PC1
+(top25_genes_dim1 <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 25))
+saveplot(top25_genes_dim1, "top25_genes_dim1")
