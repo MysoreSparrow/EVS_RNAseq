@@ -1,6 +1,6 @@
 # # Author : Keshav Prasad Gubbi
 # # Title: "Eva_RNAseq Pipeline"
-#
+
 # # Libraries
 suppressPackageStartupMessages(library("dplyr"))
 suppressPackageStartupMessages(library("DESeq2"))
@@ -325,3 +325,196 @@ saveplot(top25_genes_dim2, "top25_genes_dim2")
 # # Contributions of variables to PC1
 (top25_genes_dim1 <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 25))
 saveplot(top25_genes_dim1, "top25_genes_dim1")
+
+# ********************************DGE Results********************************
+### Running the differential expression pipeline
+dds <- DESeq(dds)
+### Building the results table
+res <- results(dds, contrast = c("condition", "d7", "adult"))
+#res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))
+write.csv(as.data.frame(res), file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
+
+### Histogram of p-values
+hist(res$pvalue, breaks = 100, col = "grey50", border = "blue")
+
+# Map Gene symbols to Ensembl and Entrez ID
+resdf <- tibble::rownames_to_column(as.data.frame(res), "symbol")
+gn <- resdf$symbol
+# Mapping the Symbol to ENTREZ ID
+entrez <- mapIds(
+  org.Mm.eg.db,
+  keys = gn,
+  column = "ENTREZID",
+  keytype = "SYMBOL",
+  multiVals = "first"
+)
+ensembl_id <- mapIds(
+  org.Mm.eg.db,
+  keys = gn,
+  column = "ENSEMBL",
+  keytype = "SYMBOL",
+  multiVals = "first"
+)
+resdf$entrez <- entrez
+resdf$ensemblID <- ensembl_id
+resdf <- resdf %>% filter(!is.na(symbol) & !is.na(entrez))
+
+## Differentially Expressed Genes that are statistically Significant
+resdf$diffexpressed <- "NS"
+# if log2Foldchange > 1.0 and pvalue < 0.05, set as "UP"
+resdf$diffexpressed[resdf$log2FoldChange > 1.0 & resdf$pvalue < 0.05] <- "UP"
+# if log2Foldchange < -1.0 and pvalue < 0.05, set as "DOWN"
+resdf$diffexpressed[resdf$log2FoldChange < -1.0 & resdf$pvalue < 0.05] <- "DOWN"
+# Create a new column "delabel" to de, that will contain the name of genes differentially expressed (NA in case they are not)
+# resdf$delabel <- NA
+# resdf$delabel[resdf$diffexpressed != "NS"] <- resdf$symbol[resdf$diffexpressed != "NS"]
+
+# Significant DE Genes Table
+significantgenes_df <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
+write.csv(significantgenes_df, file = file.path(Comparison_path , glue("SignificantDEgenes_{Comparison}.csv")))
+
+## ********************************Volcano Plots based on Enhanced Volcano********************************
+# Volcano Plot with pvalue
+volcano1 <- EnhancedVolcano(resdf,
+                            lab = resdf$symbol,
+                            x = "log2FoldChange",
+                            y = "pvalue",
+                            xlab = bquote(~ Log[2] ~ "FoldChange"),
+                            pCutoff = 0.05,
+                            FCcutoff = 1.0,
+                            title = glue("DE genes: Log2FoldChange Vs -Log10 Pvalue: {Comparison}"),
+                            subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
+                            pointSize = 2.0,
+                            labSize = 5.5,
+                            boxedLabels = FALSE,
+                            gridlines.major = FALSE,
+                            gridlines.minor = FALSE,
+                            colAlpha = 0.5,
+                            legendPosition = "bottom",
+                            legendLabSize = 12,
+                            legendIconSize = 4.0,
+                            drawConnectors = T,
+                            widthConnectors = 0.75,
+                            max.overlaps = 10,
+                            axisLabSize = 22
+)
+(volcano1 <- volcano1 + scale_y_continuous(limits = c(0, 8), breaks = seq(0, 8, 1),
+                                           sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) +
+  scale_x_continuous(limits = c(-4, 5), breaks = seq(-4, 5, 1),
+                     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) )
+#xlab(expression(DownRegulated %<->% UpRegulated)))
+saveplot(volcano1, plotname = "Volcano_pvalue")
+
+# Volcano Plot with padj.
+volcano2 <- EnhancedVolcano(resdf,
+                            lab = resdf$symbol,
+                            x = "log2FoldChange",
+                            y = "padj",
+                            xlab = bquote(~ Log[2] ~ "FoldChange"),
+                            ylab = bquote(~ Log[10] ~ "Padj"),
+                            pCutoff = 0.05,
+                            FCcutoff = 1.0,
+                            title = glue("DE genes: Log2FoldChange Vs -Log10 Padj: {Comparison}"),
+                            subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
+                            pointSize = 2.0,
+                            labSize = 5.0,
+                            boxedLabels = FALSE,
+                            gridlines.major = FALSE,
+                            gridlines.minor = FALSE,
+                            colAlpha = 0.5,
+                            legendPosition = "bottom",
+                            legendLabSize = 12,
+                            legendIconSize = 4.0,
+                            drawConnectors = T,
+                            widthConnectors = 0.75,
+                            max.overlaps = 10,
+                            axisLabSize = 22
+)
+(volcano2 <- volcano2 + scale_y_continuous(limits = c(0, 4), breaks = seq(0, 4, 1),
+                                           sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) +
+  scale_x_continuous(limits = c(-4, 4), breaks = seq(-4, 4, 1),
+                     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) )
+#xlab(expression(DownRegulated %<->% UpRegulated))
+saveplot(volcano2, plotname = "Volcano_padj")
+
+### Number of Genes from different strains that are contributing to UP/DOWN regulation.
+significantgenes_df_UP <- significantgenes_df[(significantgenes_df$log2FoldChange) > 1, ]# UP Regulation Table
+significantgenes_df_DOWN <- significantgenes_df[(significantgenes_df$log2FoldChange) < -1, ]# DOWN Regulation Table
+nrow(significantgenes_df_UP)
+nrow(significantgenes_df_DOWN)
+write.csv(significantgenes_df_UP, file.path(Comparison_path, glue("SignificantDE_UPgenes_{Comparison}.csv")))
+write.csv(significantgenes_df_DOWN, file.path(Comparison_path, glue("SignificantDE_DOWNgenes_{Comparison}.csv")))
+
+## ********************************Z-score based Gene Heatmaps********************************
+# Determining the significant Genes based on Log2FC and pvalue thresholds
+sigs2df <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
+
+# mat <- counts(dds1, normalized = TRUE)[rownames(sigsdf),]
+mat <- counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames(counts(dds)), ]
+mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
+colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
+
+(AllGenes_Heatmap <- Heatmap(mat.zs,
+                            cluster_columns = TRUE,
+                            cluster_rows = TRUE,
+                            column_labels = colnames(mat.zs),
+                            name = glue("DE Genes- {Comparison}"),
+                            show_row_names = FALSE,
+                            use_raster = TRUE,
+                            raster_quality = 10,
+                            column_names_gp = grid::gpar(fontsize = 12),
+                            #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
+                            heatmap_legend_param = list(legend_direction = "horizontal",
+                                                        legend_width = unit(x= 5, units = "cm"))))
+
+jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg") ),
+    width = 1000, height = 1000, units = "px", pointsize = 12,
+    bg = "white", res = NA, family = "", restoreConsole = TRUE,
+    type = "windows",
+    symbolfamily = "default"
+)
+draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
+dev.off()
+
+# LongHeatMap_Allgenes <- Heatmap(mat.zs,
+#                                 cluster_columns = TRUE,
+#                                 cluster_rows = TRUE,
+#                                 column_labels = colnames(mat.zs),
+#                                 row_labels = rownames(mat.zs),#sigsdf[rownames(mat2.zs), ]$symbol
+#                                 name = "All Genes",
+#                                 show_row_names = TRUE,
+#                                 use_raster = TRUE,
+#                                 raster_quality = 5,
+#                                 column_names_gp = grid::gpar(fontsize = 12),
+#                                 #row_labels = sigsdf[rownames(mat2.zs), ]$symbol
+# )
+# jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap2_{Comparison}.jpeg") ),
+#      width = 1000, height = 2000, units = "px", pointsize = 12, bg = "white", res = NA,
+#      family = "", restoreConsole = TRUE, type = "windows", symbolfamily = "default")
+# draw(LongHeatMap_Allgenes, heatmap_legend_side = "bottom")
+# dev.off()
+
+### Heatmap with tighter constraints (all genes together!)
+sigs1df <- resdf[(resdf$baseMean > 10000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
+mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
+colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
+
+Tightconstraints_Heatmap <- Heatmap(mat1.zs,
+                                    cluster_columns = TRUE,
+                                    cluster_rows = TRUE,
+                                    column_labels = colnames(mat1.zs),
+                                    name = glue("DE Genes - {Comparison}"),
+                                    row_labels = rownames(mat1.zs),
+                                    column_names_gp = grid::gpar(fontsize = 18),
+                                    row_names_gp = grid::gpar(fontsize = 20),
+                                    heatmap_legend_param = list(legend_direction = "horizontal",
+                                                                legend_width = unit(x = 5, units ="cm")))
+jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap3_{Comparison}.jpeg") ),
+     width = 1000, height = 1500, units = "px", pointsize = 12, bg = "white", res = NA,
+     family = "", restoreConsole = TRUE, type = "windows", symbolfamily = "default")
+draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
+dev.off()
+
+# ********************************Functional Analysis using Cluster Profiler********************************
+
