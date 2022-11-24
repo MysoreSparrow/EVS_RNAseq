@@ -517,4 +517,57 @@ draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
 dev.off()
 
 # ********************************Functional Analysis using Cluster Profiler********************************
+## GO over-representation analysis
+### GO Terms for UP Regulated Genes
+UPgene_ENS_ID <- (significantgenes_df_UP$ensemblID)
+GO_UPRegResults <- enrichGO(gene = UPgene_ENS_ID, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL",
+                            ont = "BP", pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.05,
+                            readable = TRUE)
+GO_UPRegResults_df <- as.data.frame(GO_UPRegResults)
+write.csv(GO_UPRegResults_df, file.path(Comparison_path , glue("GO_UPRegResults_df_{Comparison}.csv")))
+# T-Cell Based GO Terms
+# create a TCell based GO term Data frame by extracting the rows that at least partially matches to the word TCELL
+TCell_terms <- c("T cell","lymphocyte", "leukocyte", "mononuclear cell", "cell activation", "immune response")
+GO_UpRegdf_TCell <- GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
+#Warning: I wont be able to detect GO terms that do not have the word cytokines mentioned in their description.
+write.csv(GO_UpRegdf_TCell, file.path(Comparison_path , glue("GO_TCELL_{Comparison}.csv"))
 
+# Functional Analysis Plots
+GO_UPReg_Barplot <- plot(barplot(GO_UPRegResults, showCategory = 25, font.size = 15,
+                                 title = "UpRegulated", label_format = 45))
+saveplot(plot = GO_UPReg_Barplot, plotname = "GO_UPReg_Barplot")
+GO_UPReg_Dotplot <- plot(dotplot(GO_UPRegResults, showCategory = 25, font.size = 15,
+                                 title = "UpRegulated", label_format = 45))
+saveplot(plot = GO_UPReg_Dotplot, plotname = "GO_UPReg_Dotplot")
+GO_UPReg_Cnetplot <- plot(cnetplot(GO_UPRegResults, showCategory = 15, font.size = 20))
+saveplot(plot = GO_UPReg_Cnetplot, plotname = "GO_UPReg_Cnetplot")
+GO_UPReg_Heatplot <- plot(heatplot(GO_UPRegResults, foldChange = 1))
+saveplot(plot = GO_UPReg_Heatplot, plotname = "GO_UPReg_Heatplot")
+edox2 <- pairwise_termsim(GO_UPRegResults)
+GO_UPReg_enrichtreeplot <- plot(treeplot(edox2))
+saveplot(plot = GO_UPReg_enrichtreeplot, plotname = "GO_UPReg_enrichtreeplot")
+GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE)
+saveplot(plot = GO_UPReg_emapplot, plotname = "GO_UPReg_emapplot")
+### GO Terms for DOWN Regulated Genes
+DOWNgene_ENS_ID <- (significantgenes_df_DOWN$ensemblID)
+GO_DOWNRegResults <- enrichGO(gene = DOWNgene_ENS_ID, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL",
+                            ont = "BP", pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.05,
+                            readable = TRUE)
+GO_DOWNRegResults_df <- as.data.frame(GO_DOWNRegResults)
+write.csv(GO_DOWNRegResults_df, file.path(Comparison_path , glue("GO_DOWNRegResults_df_{Comparison}.csv")))
+
+GO_DOWNReg_Barplot <- plot(barplot(GO_DOWNRegResults, showCategory = 25, font.size = 15,
+                                 title = "DOWNRegulated", label_format = 45))
+saveplot(plot = GO_DOWNReg_Barplot, plotname = "GO_DOWNReg_Barplot")
+GO_DOWNReg_Dotplot <- plot(dotplot(GO_DOWNRegResults, showCategory = 25, font.size = 15,
+                                 title = "DOWNRegulated", label_format = 45))
+saveplot(plot = GO_DOWNReg_Dotplot, plotname = "GO_DOWNReg_Dotplot")
+GO_DOWNReg_Cnetplot <- plot(cnetplot(GO_DOWNRegResults, showCategory = 15, font.size = 20))
+saveplot(plot = GO_DOWNReg_Cnetplot, plotname = "GO_DOWNReg_Cnetplot")
+GO_DOWNReg_Heatplot <- plot(heatplot(GO_DOWNRegResults, foldChange = 1))
+saveplot(plot = GO_DOWNReg_Heatplot, plotname = "GO_DOWNReg_Heatplot")
+edox2 <- pairwise_termsim(GO_DOWNRegResults)
+GO_DOWNReg_enrichtreeplot <- plot(treeplot(edox2))
+saveplot(plot = GO_DOWNReg_enrichtreeplot, plotname = "GO_DOWNReg_enrichtreeplot")
+GO_DOWNReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE)
+saveplot(plot = GO_DOWNReg_emapplot, plotname = "GO_DOWNReg_emapplot")
