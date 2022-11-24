@@ -530,7 +530,7 @@ write.csv(GO_UPRegResults_df, file.path(Comparison_path , glue("GO_UPRegResults_
 TCell_terms <- c("T cell","lymphocyte", "leukocyte", "mononuclear cell", "cell activation", "immune response")
 GO_UpRegdf_TCell <- GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
 #Warning: I wont be able to detect GO terms that do not have the word cytokines mentioned in their description.
-write.csv(GO_UpRegdf_TCell, file.path(Comparison_path , glue("GO_TCELL_{Comparison}.csv"))
+write.csv(GO_UpRegdf_TCell, file.path(Comparison_path , glue("GO_TCELL_{Comparison}.csv")))
 
 # Functional Analysis Plots
 GO_UPReg_Barplot <- plot(barplot(GO_UPRegResults, showCategory = 25, font.size = 15,
