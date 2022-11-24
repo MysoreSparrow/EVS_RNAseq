@@ -51,8 +51,8 @@ here()
 # glue Variable. Define the Comparison and also create the folder for saving all plots and results to be
 # saved as per the comparison
 
-Comparison <- "adult_spfVsd7_spf"
-# Comparison <- "d7_GFVsd7_spF"
+# Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator.
+Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF"
 # Comparison <- "d7_WTVsd7_spF"
 # Comparison <- "d7_WTVsadult_WT"
@@ -63,8 +63,8 @@ Comparison_path <- file.path(here(), glue("{Comparison}"))
 if (!dir.exists(here(Comparison_path))) { dir.create(here(Comparison_path)) } else { print("Dir already exists!") }
 paste0(Comparison_path)
 
-# for UninfectedVSInfected is the volcano plot notation: for Deseq2 results,
-# the infected is Numerator.and uninfected is Denominator.
+# for Example: UninfectedVSInfected is the volcano plot notation: for Deseq2 results,
+# the infected is Numerator.and uninfected is Denominator. which will result in DESEQ contrast like (condition, Infected, Uninfected) and hence the infected part will come on the right side of the volcano plot.
 
 # counts Matrix processing
 ## Input the Count Matrix
@@ -143,11 +143,14 @@ colnames(countsmatrix) <- coldata$Sample_Name
 paste0(Comparison )
 switch(Comparison,
        "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]) },
-       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 4, 9, 10, 11), ]) }
+       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 4, 9, 10, 11), ]) },
+       "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 9, 10, 11),])}
 )
 switch(Comparison,
        "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]) },
-       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 4, 9, 10, 11)]) }
+       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 4, 9, 10, 11)]) },
+       "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 9, 10, 11)])}
+
 )
 # **********************FUNCTIONS**************************************************************************************
 # Function to save generic plots
@@ -156,7 +159,8 @@ saveplot <- function(plot, plotname) {
   extension <- ".jpeg"
   ggsave(filename = file.path(Comparison_path, paste(plotname, glue("_{Comparison}_"), extension),sep=""),
          plot = plot, dpi = 300, width = 10, height = 10, units = "in")
-  dev.off()
+  #dev.off()
+  while (!is.null(dev.list()))  dev.off()
 }
 # **********************DESeq Analysis********************************
 # Sanity Check for DDS
@@ -168,8 +172,8 @@ dim(countsmatrix)
 dds <- DESeqDataSetFromMatrix(
   countData = countsmatrix,
   colData = coldata,
-  #design = ~MouseType
-  design = ~condition
+  design = ~MouseType
+  # design = ~condition
 )
 # Further filtering of low count genes
 keep <- rowSums(counts(dds)) > 10
@@ -330,9 +334,12 @@ saveplot(top25_genes_dim1, "top25_genes_dim1")
 ### Running the differential expression pipeline
 dds <- DESeq(dds)
 ### Building the results table
-res <- results(dds, contrast = c("condition", "d7", "adult"))
-#res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))
-write.csv(as.data.frame(res), file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
+### 2nd term will be the Nr.(Infected)
+# res <- results(dds, contrast = c("condition", "d7", "adult"))
+# res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))
+res <- results(dds, contrast = c("MouseType", "SPF", "GF")) # d7_GFVsd7_SPF
+write.csv(as.data.frame(res),
+          file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
 
 ### Histogram of p-values
 hist(res$pvalue, breaks = 100, col = "grey50", border = "blue")
@@ -474,7 +481,8 @@ jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg
     symbolfamily = "default"
 )
 draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
-dev.off()
+#dev.off()
+while (!is.null(dev.list()))  dev.off()
 
 # LongHeatMap_Allgenes <- Heatmap(mat.zs,
 #                                 cluster_columns = TRUE,
@@ -495,7 +503,7 @@ dev.off()
 # dev.off()
 
 ### Heatmap with tighter constraints (all genes together!)
-sigs1df <- resdf[(resdf$baseMean > 10000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+sigs1df <- resdf[(resdf$baseMean > 1000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
 mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
@@ -514,7 +522,7 @@ jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap3_{Comparison}.jpeg
      width = 1000, height = 1500, units = "px", pointsize = 12, bg = "white", res = NA,
      family = "", restoreConsole = TRUE, type = "windows", symbolfamily = "default")
 draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
-dev.off()
+while (!is.null(dev.list()))  dev.off() #dev.off()
 
 # ********************************Functional Analysis using Cluster Profiler********************************
 ## GO over-representation analysis
@@ -546,7 +554,7 @@ saveplot(plot = GO_UPReg_Heatplot, plotname = "GO_UPReg_Heatplot")
 edox2 <- pairwise_termsim(GO_UPRegResults)
 GO_UPReg_enrichtreeplot <- plot(treeplot(edox2))
 saveplot(plot = GO_UPReg_enrichtreeplot, plotname = "GO_UPReg_enrichtreeplot")
-GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE)
+(GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE))
 saveplot(plot = GO_UPReg_emapplot, plotname = "GO_UPReg_emapplot")
 ### GO Terms for DOWN Regulated Genes
 DOWNgene_ENS_ID <- (significantgenes_df_DOWN$ensemblID)
