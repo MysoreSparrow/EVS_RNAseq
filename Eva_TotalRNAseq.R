@@ -85,8 +85,7 @@ colnames(gendergenes_biomart)[1] <- "EnsemblID" # Just trying to get the colname
 # in the second data frame
 countsmatrix <- anti_join(countsmatrix, gendergenes_biomart, by = 'EnsemblID')
 ## Removal of Gender Genes from ENSEMBL ID column itself
-nrow(countsmatrix)
-
+# Filter out the other 5 known gender genes as well from other RNAseq Projects.
 countsmatrix <- countsmatrix %>% filter(countsmatrix$EnsemblID != "ENSMUSG00000086503",
                                         countsmatrix$EnsemblID != "ENSMUSG00000097571",
                                         countsmatrix$EnsemblID != "ENSMUSG00000086370",
@@ -94,86 +93,66 @@ countsmatrix <- countsmatrix %>% filter(countsmatrix$EnsemblID != "ENSMUSG000000
                                         countsmatrix$EnsemblID != "ENSMUSG00000030057")
 nrow(countsmatrix)
 
-# ## Input the Count Matrix
-#
-# countsmatrix <- read.csv("C:/Users/kesha/Documents/Eva_TotalRNASeq/featurecounts_Eva_totalRNAseq.csv",
-#                          stringsAsFactors = TRUE)
-#
-#
-# ### Clean up the Count Matrix
-# rownames(countsmatrix) <- countsmatrix[, 2]
-# # converting first column of gene ID into rownames, to be used for sanity check later
-#
-# # It is IMPORTANT to keep the names of the genes in the rownames
-# countsmatrix <- subset(countsmatrix, select = -c(X, EnsemblID)) # dropping the X column
-#
-# ## Display the column names
-# #colnames(countsmatrix)
-#
-# ### Annotating and Exporting ENSEMBL ID into Gene Symbols
-#
-# # Adding genes annotated from ENSEMBL ID to Gene symbols and ENTREZ Id to countsmatrix table.
-# # Will be keeping the symbols and entrez columsn to be added later into results table as it is for later use
-#
-# cm_row <- rownames(countsmatrix)
-# head(cm_row)
-#
-# # Mapping the ENSEMBL ID to Symbol and ENTREZ ID
-# symbols <- mapIds(
-#   org.Mm.eg.db,
-#   keys = cm_row,
-#   column = "SYMBOL",
-#   keytype = "ENSEMBL",
-#   multiVals = "first"
-# )
-#
-# # Create symbols column
-# symbols <- symbols[!is.na(symbols)]
-# symbols <- symbols[match(rownames(countsmatrix), names(symbols))]
-#
-# # Creating a new column called genename and putting in the symbols and entrez columns into count matrix
-# countsmatrix$genename <- symbols
-#
-# # Removing all rows with NA values for genenames, so that those rows are filtered out.
-# countsmatrix <- unique(countsmatrix[rowSums(is.na(countsmatrix)) == 0,]) # Apply rowSums & is.na
-#
-# nrow(countsmatrix)
-#
-# # Moving the ENSEMBL ID from rownames into separate column for itself.
-# countsmatrix <- tibble::rownames_to_column(countsmatrix, "E_ID")
-# # Removing the duplicated genes so that then these genes can be made into rownames for countsmatrix
-# countsmatrix <- distinct(countsmatrix[!duplicated(countsmatrix$genename),])
-#
-# # Now make the ganename column into rownames of count matrix
-# rownames(countsmatrix) <- countsmatrix[, "genename"]
-#
-# # Dropping the column E_ID, genenames so that only numeric values are present in it as an input of DESEq Object.
-# countsmatrix <- subset(countsmatrix, select = -c(genename, E_ID))
-#
-# # Changing countsmatrix into Matrix of numeric values so that only numeric values are present in it as an input of DESEq Object.
-# countsmatrix <- as.matrix(countsmatrix)
-# class(countsmatrix) <- "numeric"
-#
-# ### The Count Matrix is:
-# head(countsmatrix, 10)
-#
-#
-# ## Develop ColData by importing metadata
-#
-# # Read the csv file and change the column name. the samples.csv is a list of sample names, ie, the names of bam files.
-# sample_ID <- read.csv( "C:/Users/kesha/Documents/Eva_TotalRNASeq/Samples_eva.csv")
-#
-# coldata <- as.data.frame(sample_ID)
-# colnames(coldata) <- c("Sample_Name", "MouseType", "condition") # change name of one of the columns
-# rownames(coldata) <- coldata[, 1] # move the sample names into row names
-# # The metadata can be found in a df called coldata!
-# head(coldata)
-#
-# ## the elements from Sample_Name from coldata must the the colnames of countsmatrix
-# colnames(countsmatrix) <- coldata$Sample_Name
-#
+# It is IMPORTANT to keep the names of the genes in the rownames
+countsmatrix <- subset(countsmatrix, select = -c(X, EnsemblID)) # dropping the X column
+## Display the column names
+colnames(countsmatrix)
+
+### Annotating and Exporting ENSEMBL ID into Gene Symbols
+
+# Adding genes annotated from ENSEMBL ID to Gene symbols and ENTREZ Id to countsmatrix table.
+# Will be keeping the symbols and entrez columns to be added later into results table as it is for later use
+cm_row <- rownames(countsmatrix)
+# Mapping the ENSEMBL ID to Symbol and ENTREZ ID
+symbols <- mapIds(org.Mm.eg.db, keys = cm_row, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+
+# Create symbols column
+symbols <- symbols[!is.na(symbols)]
+symbols <- symbols[match(rownames(countsmatrix), names(symbols))]
+
+# Creating a new column called genename and putting in the symbols and entrez columns into count matrix
+countsmatrix$genename <- symbols
+
+# Removing all rows with NA values for genenames, so that those rows are filtered out.
+countsmatrix <- unique(countsmatrix[rowSums(is.na(countsmatrix)) == 0, ]) # Apply rowSums & is.na
+# Moving the ENSEMBL ID from rownames into separate column for itself.
+countsmatrix <- tibble::rownames_to_column(countsmatrix, "E_ID")
+# Removing the duplicated genes so that then these genes can be made into rownames for countsmatrix
+countsmatrix <- distinct(countsmatrix[!duplicated(countsmatrix$genename), ])
+# Now make the ganename column into rownames of count matrix
+rownames(countsmatrix) <- countsmatrix[, "genename"]
+
+# Dropping the column E_ID, genenames so that only numeric values are present in it as an input of DESEq Object.
+countsmatrix <- subset(countsmatrix, select = -c(genename, E_ID))
+
+# Changing countsmatrix into Matrix of numeric values so that only numeric values are present in it as an input of DESEq Object.
+countsmatrix <- as.matrix(countsmatrix)
+class(countsmatrix) <- "numeric"
+
+## Develop ColData by importing metadata
+# Read the csv file and change the column name. the samples.csv is a list of sample names, ie, the names of bam files.
+coldata <- as.data.frame(read.csv(file.path(here(), "Samples_eva.csv")))
+colnames(coldata) <- c("Sample_Name", "MouseType", "condition") # change name of one of the columns
+rownames(coldata) <- coldata[, 1] # move the sample names into row names
+# The metadata can be found in a df called coldata!
+## the elements from Sample_Name from coldata must the the colnames of countsmatrix
+colnames(countsmatrix) <- coldata$Sample_Name
 #
 # # *****************Now to the comparisons*************
+### Reduce larger Matrix to smaller one - based on comparison
+if (Comparison == "adult_spfVsd7_spf"){
+  # adult_spfVsd7_spf
+  coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]
+  countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]
+}else if (Comparison == "d7_WTVsd7_spF"){
+  # d7_WTVsd7_spF
+  coldata <- coldata[c(1, 2, 4, 9, 10, 11), ]
+  countsmatrix <- countsmatrix[, c(1, 2, 4, 9, 10, 11)]
+}else{
+  print("Not Valid Matrix!")
+}
+
+# ******************************************************
 #
 # # ******************************************************
 #
