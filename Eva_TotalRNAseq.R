@@ -55,12 +55,12 @@ here()
 # Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
 # Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
-Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
-# Comparison <- "adult_GFVsd7_GF"
-#
+# Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
+# Comparison <- "adult_GFVsd7_GF" # d7 GF is the Numerator
+Comparison <- "adult_GFVsadult_WT" # adult WT is the numerator
 # Determine the Comparison Condition: Comment one of them out based on teh comparison you are trying to run.
-# Comparison_Condition <- "MouseType"
-Comparison_Condition <- "condition"
+Comparison_Condition <- "MouseType"
+# Comparison_Condition <- "condition"
 
 # Folder Paths for Different Comparisons
 Comparison_path <- file.path(here(), glue("{Comparison}"))
@@ -146,18 +146,20 @@ colnames(countsmatrix) <- coldata$Sample_Name
 ### Reduce larger Matrix to smaller one - based on comparison
 paste0(Comparison )
 switch(Comparison,
-       "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]) },
-       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 3, 9, 10, 11), ]) },
+       "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ])},
+       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])},
        "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 9, 10, 11),])},
        "adult_GFVsd7_GF" = {(coldata <- coldata[c(5, 6, 7, 15, 16, 17),])},
-       "adult_WTVsd7_WT" = {(coldata <- coldata[c(1, 2, 3, 12, 13, 14),])}
+       "adult_WTVsd7_WT" = {(coldata <- coldata[c(1, 2, 3, 12, 13, 14),])},
+       "adult_GFVsadult_WT" = {(coldata <- coldata[c(12, 13, 14, 15, 16, 17),])}
 )
 switch(Comparison,
        "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])},
        "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])},
        "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 9, 10, 11)])},
        "adult_GFVsd7_GF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 15, 16, 17)])},
-       "adult_WTVsd7_WT" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])}
+       "adult_WTVsd7_WT" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])},
+       "adult_GFVsadult_WT" = {(countsmatrix <- countsmatrix[, c(12, 13, 14, 15, 16, 17)])}
 )
 # **********************FUNCTIONS**************************************************************************************
 # Function to save generic plots
@@ -212,8 +214,7 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
                                       clustering_distance_rows = sampleDists,
                                       clustering_distance_cols = sampleDists,
                                       main = glue("Euclidean Distance of Samples: {Comparison}"),
-                                      col = colors
-))
+                                      col = colors))
 ### Poisson Distance between Samples
 poisd <- PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
 samplePoisDistMatrix <- as.matrix(poisd$dd)
@@ -359,6 +360,7 @@ switch(Comparison,
        "adult_WTVsd7_WT"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))}, #adult_WTVsd7_WT
        "d7_WTVsd7_spF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))}, # d7_WTVsd7_spF
        "d7_GFVsd7_SPF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "GF"))},# d7_GFVsd7_SPF
+       "adult_GFVsadult_WT"  = {res <- results(dds, contrast = c("MouseType", "WLD", "GF"))},# adult_GFVsadult_WT
 )
 write.csv(as.data.frame(res), file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
 
@@ -492,7 +494,6 @@ jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg
 draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
 #dev.off()
 while (!is.null(dev.list()))  dev.off()
-
 # LongHeatMap_Allgenes <- Heatmap(mat.zs,
 #                                 cluster_columns = TRUE,
 #                                 cluster_rows = TRUE,
@@ -510,11 +511,10 @@ while (!is.null(dev.list()))  dev.off()
 #      family = "", restoreConsole = TRUE, type = "windows", symbolfamily = "default")
 # draw(LongHeatMap_Allgenes, heatmap_legend_side = "bottom")
 # dev.off()
-
 ### Heatmap with tighter constraints (all genes together!)
-sigs1df <- resdf[(resdf$baseMean > 10000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+sigs1df <- resdf[(resdf$baseMean > 1000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
-mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
+mat1.zs <- t(apply(mat1, MARGIN = 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 
 Tightconstraints_Heatmap <- Heatmap(mat1.zs,
@@ -532,7 +532,6 @@ jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap3_{Comparison}.jpeg
      family = "", restoreConsole = TRUE, type = "windows", symbolfamily = "default")
 draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
 while (!is.null(dev.list()))  dev.off() #dev.off()
-
 # ********************************Functional Analysis using Cluster Profiler********************************
 ## GO over-representation analysis
 ### GO Terms for UP Regulated Genes
