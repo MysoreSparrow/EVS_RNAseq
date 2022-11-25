@@ -2,46 +2,13 @@
 # # Title: "Eva_RNAseq Pipeline"
 
 # # Libraries
-suppressPackageStartupMessages(library("dplyr"))
-suppressPackageStartupMessages(library("DESeq2"))
-suppressPackageStartupMessages(library("pheatmap"))
-suppressPackageStartupMessages(library("PoiClaClu"))
-suppressPackageStartupMessages(library("RColorBrewer"))
-suppressPackageStartupMessages(library("tidyverse"))
-suppressPackageStartupMessages(library("PoiClaClu"))
-suppressPackageStartupMessages(library("vsn"))
-suppressPackageStartupMessages(library("EnhancedVolcano"))
-suppressPackageStartupMessages(library("gplots"))
-suppressPackageStartupMessages(library("org.Mm.eg.db"))
-suppressPackageStartupMessages(library("stringr"))
-suppressPackageStartupMessages(library("genefilter"))
-suppressPackageStartupMessages(library("dplyr"))
-suppressPackageStartupMessages(library("ggplot2"))
-suppressPackageStartupMessages(library("org.Mm.eg.db"))
-suppressPackageStartupMessages(library("AnnotationDbi"))
-suppressPackageStartupMessages(library("apeglm"))
-suppressPackageStartupMessages(library("ComplexHeatmap"))
-suppressPackageStartupMessages(library("clusterProfiler"))
-suppressPackageStartupMessages(library("ggrepel"))
-suppressPackageStartupMessages(library("corrplot"))
-suppressPackageStartupMessages(library("GO.db"))
-suppressPackageStartupMessages(library("edgeR"))
-suppressPackageStartupMessages(library("GOstats"))
-suppressPackageStartupMessages(library("pathview"))
-suppressPackageStartupMessages(library("gage"))
-suppressPackageStartupMessages(library("gageData"))
-suppressPackageStartupMessages(library("GOSemSim"))
-suppressPackageStartupMessages(library("DOSE"))
-suppressPackageStartupMessages(library("enrichplot"))
-suppressPackageStartupMessages(library("ggnewscale"))
-suppressPackageStartupMessages(library("glue"))
-suppressPackageStartupMessages(library("ggupset"))
-suppressPackageStartupMessages(library("stringr"))
-suppressPackageStartupMessages(library("stats"))
-suppressPackageStartupMessages(library("FactoMineR"))
-suppressPackageStartupMessages(library("factoextra"))
-suppressPackageStartupMessages(library("pcaExplorer"))
-suppressPackageStartupMessages(library("here"))
+Package_List <- c("dplyr", "DESeq2", "pheatmap",  "PoiClaClu", "RColorBrewer","vsn", "EnhancedVolcano", "gplots",
+                  "org.Mm.eg.db", "stringr", "genefilter", "tidyverse", "AnnotationDbi", "ComplexHeatmap", "DOSE",
+                  "clusterProfiler", "ggrepel", "GO.db", "GOstats", "gage", "gageData", "GOSemSim", "enrichplot",
+                  "ggnewscale", "glue", "ggupset", "FactoMineR", "factoextra", "here")
+not_installed <- Package_List[!(Package_List %in% installed.packages()[ , "Package"])] # Extract not installed packages
+if(length(not_installed)) install.packages(not_installed)  # Install not installed packages
+invisible(lapply(Package_List, suppressPackageStartupMessages(library), character.only = TRUE))
 
 # File Path Declarations
 here::i_am(path = "Eva_TotalRNAseq.R")
