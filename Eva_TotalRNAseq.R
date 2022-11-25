@@ -52,11 +52,15 @@ here()
 # saved as per the comparison
 
 # Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator.
-Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
-# Comparison <- "adult_GFVsd7_GF"
-# Comparison <- "d7_WTVsd7_spF"
+# Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
+Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
+# Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
 # Comparison <- "d7_WTVsadult_WT"
 # Comparison <- "adult_GFVsd7_GF"
+#
+# Determine the Comparison Condition: Comment one of them out based on teh comparison you are trying to run.
+Comparison_Condition <- "MouseType"
+Comparison_Condition <- "condition"
 
 # Folder Paths for Different Comparisons
 Comparison_path <- file.path(here(), glue("{Comparison}"))
@@ -143,13 +147,15 @@ colnames(countsmatrix) <- coldata$Sample_Name
 paste0(Comparison )
 switch(Comparison,
        "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]) },
-       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 4, 9, 10, 11), ]) },
-       "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 9, 10, 11),])}
+       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 3, 9, 10, 11), ]) },
+       "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 9, 10, 11),])},
+       "adult_GFVsd7_GF" = {(coldata <- coldata[c(5, 6, 7, 15, 16, 17),])}
 )
 switch(Comparison,
        "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]) },
-       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 4, 9, 10, 11)]) },
-       "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 9, 10, 11)])}
+       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)]) },
+       "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 9, 10, 11)])},
+       "adult_GFVsd7_GF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 15, 16, 17)])}
 
 )
 # **********************FUNCTIONS**************************************************************************************
@@ -168,13 +174,23 @@ all(rownames(coldata) %in% colnames(countsmatrix))
 ncol(countsmatrix) == nrow(coldata)
 dim(countsmatrix)
 
-## Creating the DESeq Data set Object
-dds <- DESeqDataSetFromMatrix(
-  countData = countsmatrix,
-  colData = coldata,
-  design = ~MouseType
-  # design = ~condition
-)
+# Create DEseq Object based on design that was chosen through the Comparison_Condition that was chosen at the begininning of the script run.
+if (Comparison_Condition == "MouseType"){
+  ## Creating the DESeq Data set Object
+  dds <- DESeqDataSetFromMatrix(
+    countData = countsmatrix,
+    colData = coldata,
+    design = ~MouseType
+  )
+}else {
+  ## Creating the DESeq Data set Object
+  dds <- DESeqDataSetFromMatrix(
+    countData = countsmatrix,
+    colData = coldata,
+    design = ~condition
+  )
+}
+
 # Further filtering of low count genes
 keep <- rowSums(counts(dds)) > 10
 dds <- dds[keep, ]
@@ -333,11 +349,19 @@ saveplot(top25_genes_dim1, "top25_genes_dim1")
 # ********************************DGE Results********************************
 ### Running the differential expression pipeline
 dds <- DESeq(dds)
+
 ### Building the results table
 ### 2nd term will be the Nr.(Infected)
-# res <- results(dds, contrast = c("condition", "d7", "adult"))
-# res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))
-res <- results(dds, contrast = c("MouseType", "SPF", "GF")) # d7_GFVsd7_SPF
+switch(Comparison,
+       "adult_spfVsd7_spf" = {res <- results(dds, contrast = c("condition", "d7", "adult"))},# adult_spfVsd7_spf
+       "d7_WTVsd7_spF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))}, # d7_WTVsd7_spF
+       "d7_GFVsd7_SPF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "GF"))},# d7_GFVsd7_SPF
+       "adult_GFVsd7_GF"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))} #adult_GFVsd7_GF
+)
+#
+#  # d7_WTVsd7_spF
+
+
 write.csv(as.data.frame(res),
           file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
 
@@ -461,28 +485,28 @@ mat <- counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames
 mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
 colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 
-(AllGenes_Heatmap <- Heatmap(mat.zs,
-                            cluster_columns = TRUE,
-                            cluster_rows = TRUE,
-                            column_labels = colnames(mat.zs),
-                            name = glue("DE Genes- {Comparison}"),
-                            show_row_names = FALSE,
-                            use_raster = TRUE,
-                            raster_quality = 10,
-                            column_names_gp = grid::gpar(fontsize = 12),
-                            #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
-                            heatmap_legend_param = list(legend_direction = "horizontal",
-                                                        legend_width = unit(x= 5, units = "cm"))))
-
-jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg") ),
-    width = 1000, height = 1000, units = "px", pointsize = 12,
-    bg = "white", res = NA, family = "", restoreConsole = TRUE,
-    type = "windows",
-    symbolfamily = "default"
-)
-draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
-#dev.off()
-while (!is.null(dev.list()))  dev.off()
+# (AllGenes_Heatmap <- Heatmap(mat.zs,
+#                             cluster_columns = TRUE,
+#                             cluster_rows = TRUE,
+#                             column_labels = colnames(mat.zs),
+#                             name = glue("DE Genes- {Comparison}"),
+#                             show_row_names = FALSE,
+#                             use_raster = TRUE,
+#                             raster_quality = 10,
+#                             column_names_gp = grid::gpar(fontsize = 12),
+#                             #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
+#                             heatmap_legend_param = list(legend_direction = "horizontal",
+#                                                         legend_width = unit(x= 5, units = "cm"))))
+#
+# jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg") ),
+#     width = 1000, height = 1000, units = "px", pointsize = 12,
+#     bg = "white", res = NA, family = "", restoreConsole = TRUE,
+#     type = "windows",
+#     symbolfamily = "default"
+# )
+# draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
+# #dev.off()
+# while (!is.null(dev.list()))  dev.off()
 
 # LongHeatMap_Allgenes <- Heatmap(mat.zs,
 #                                 cluster_columns = TRUE,
