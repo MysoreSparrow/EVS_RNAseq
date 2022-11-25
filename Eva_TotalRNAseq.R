@@ -44,7 +44,7 @@ suppressPackageStartupMessages(library("pcaExplorer"))
 suppressPackageStartupMessages(library("here"))
 
 # File Path Declarations
-here::i_am("Eva_TotalRNAseq.R")
+here::i_am(path = "Eva_TotalRNAseq.R")
 here()
 
 # Also Create a comparison Variable: That Could be used later for all other comparison titles using a
@@ -53,13 +53,13 @@ here()
 
 # Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator.
 # Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
-Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
+# Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
 # Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
-# Comparison <- "d7_WTVsadult_WT"
+Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
 # Comparison <- "adult_GFVsd7_GF"
 #
 # Determine the Comparison Condition: Comment one of them out based on teh comparison you are trying to run.
-Comparison_Condition <- "MouseType"
+# Comparison_Condition <- "MouseType"
 Comparison_Condition <- "condition"
 
 # Folder Paths for Different Comparisons
@@ -78,10 +78,10 @@ rownames(countsmatrix) <- countsmatrix[, 2] # converting first column of gene ID
 # to be used for sanity check later
 nrow(countsmatrix)
 # GenderGenes Filtering}
-gendergenes_biomart <- data.frame(read.csv("~/R/Eva_TotalRNASeq/20221017_y-chromosomal genes_biomart.txt",
+gendergenes_biomart <- data.frame(read.csv(file = file.path(here(), "/20221017_y-chromosomal genes_biomart.txt" ),
                                            stringsAsFactors = FALSE))
 ## Remove rows with only empty cells
-gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", 1, all),]
+gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", MARGIN = 1, all),]
 nrow(gendergenes_biomart)
 colnames(gendergenes_biomart)[1] <- "EnsemblID" # Just trying to get the colnames of ensembl column to be same.
 
@@ -120,7 +120,7 @@ countsmatrix$genename <- symbols
 # Removing all rows with NA values for genenames, so that those rows are filtered out.
 countsmatrix <- unique(countsmatrix[rowSums(is.na(countsmatrix)) == 0, ]) # Apply rowSums & is.na
 # Moving the ENSEMBL ID from rownames into separate column for itself.
-countsmatrix <- tibble::rownames_to_column(countsmatrix, "E_ID")
+countsmatrix <- tibble::rownames_to_column(countsmatrix, var = "E_ID")
 # Removing the duplicated genes so that then these genes can be made into rownames for countsmatrix
 countsmatrix <- distinct(countsmatrix[!duplicated(countsmatrix$genename), ])
 # Now make the ganename column into rownames of count matrix
@@ -149,14 +149,15 @@ switch(Comparison,
        "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ]) },
        "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 3, 9, 10, 11), ]) },
        "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 9, 10, 11),])},
-       "adult_GFVsd7_GF" = {(coldata <- coldata[c(5, 6, 7, 15, 16, 17),])}
+       "adult_GFVsd7_GF" = {(coldata <- coldata[c(5, 6, 7, 15, 16, 17),])},
+       "adult_WTVsd7_WT" = {(coldata <- coldata[c(1, 2, 3, 12, 13, 14),])}
 )
 switch(Comparison,
-       "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)]) },
-       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)]) },
+       "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])},
+       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])},
        "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 9, 10, 11)])},
-       "adult_GFVsd7_GF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 15, 16, 17)])}
-
+       "adult_GFVsd7_GF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 15, 16, 17)])},
+       "adult_WTVsd7_WT" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])}
 )
 # **********************FUNCTIONS**************************************************************************************
 # Function to save generic plots
@@ -333,18 +334,18 @@ var <- get_pca_var(res.pca)
 heat.colors <- brewer.pal(6, "RdYlBu")
 ## Genes + PCA Biplots
 (Genes_Biplot <- fviz_pca_biplot(res.pca, repel = TRUE))
-saveplot(Genes_Biplot, "Genes_Biplot")
+saveplot(Genes_Biplot, plotname = "Genes_Biplot")
 
 (Genes_contributions_Biplot <- fviz_pca_var(res.pca, col.var = "contrib", repel = TRUE,
                                             gradient.cols = c("Gray", "blue", "pink", "yellow",
                                                               "orange", "green", "red", "black")))
-saveplot(Genes_contributions_Biplot, "Genes_contributions_Biplot")
+saveplot(Genes_contributions_Biplot, plotname ="Genes_contributions_Biplot")
 # Contributions of variables to PC2
 (top25_genes_dim2 <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 25))
-saveplot(top25_genes_dim2, "top25_genes_dim2")
+saveplot(top25_genes_dim2, plotname = "top25_genes_dim2")
 # # Contributions of variables to PC1
 (top25_genes_dim1 <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 25))
-saveplot(top25_genes_dim1, "top25_genes_dim1")
+saveplot(top25_genes_dim1, plotname = "top25_genes_dim1")
 
 # ********************************DGE Results********************************
 ### Running the differential expression pipeline
@@ -354,38 +355,22 @@ dds <- DESeq(dds)
 ### 2nd term will be the Nr.(Infected)
 switch(Comparison,
        "adult_spfVsd7_spf" = {res <- results(dds, contrast = c("condition", "d7", "adult"))},# adult_spfVsd7_spf
+       "adult_GFVsd7_GF"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))}, #adult_GFVsd7_GF
+       "adult_WTVsd7_WT"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))}, #adult_WTVsd7_WT
        "d7_WTVsd7_spF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))}, # d7_WTVsd7_spF
        "d7_GFVsd7_SPF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "GF"))},# d7_GFVsd7_SPF
-       "adult_GFVsd7_GF"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))} #adult_GFVsd7_GF
 )
-#
-#  # d7_WTVsd7_spF
-
-
-write.csv(as.data.frame(res),
-          file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
+write.csv(as.data.frame(res), file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
 
 ### Histogram of p-values
 hist(res$pvalue, breaks = 100, col = "grey50", border = "blue")
 
 # Map Gene symbols to Ensembl and Entrez ID
-resdf <- tibble::rownames_to_column(as.data.frame(res), "symbol")
+resdf <- tibble::rownames_to_column(as.data.frame(res), var = "symbol")
 gn <- resdf$symbol
 # Mapping the Symbol to ENTREZ ID
-entrez <- mapIds(
-  org.Mm.eg.db,
-  keys = gn,
-  column = "ENTREZID",
-  keytype = "SYMBOL",
-  multiVals = "first"
-)
-ensembl_id <- mapIds(
-  org.Mm.eg.db,
-  keys = gn,
-  column = "ENSEMBL",
-  keytype = "SYMBOL",
-  multiVals = "first"
-)
+entrez <- mapIds(org.Mm.eg.db, keys = gn, column = "ENTREZID", keytype = "SYMBOL", multiVals = "first")
+ensembl_id <- mapIds(org.Mm.eg.db, keys = gn, column = "ENSEMBL", keytype = "SYMBOL", multiVals = "first")
 resdf$entrez <- entrez
 resdf$ensemblID <- ensembl_id
 resdf <- resdf %>% filter(!is.na(symbol) & !is.na(entrez))
@@ -485,28 +470,28 @@ mat <- counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames
 mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
 colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 
-# (AllGenes_Heatmap <- Heatmap(mat.zs,
-#                             cluster_columns = TRUE,
-#                             cluster_rows = TRUE,
-#                             column_labels = colnames(mat.zs),
-#                             name = glue("DE Genes- {Comparison}"),
-#                             show_row_names = FALSE,
-#                             use_raster = TRUE,
-#                             raster_quality = 10,
-#                             column_names_gp = grid::gpar(fontsize = 12),
-#                             #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
-#                             heatmap_legend_param = list(legend_direction = "horizontal",
-#                                                         legend_width = unit(x= 5, units = "cm"))))
-#
-# jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg") ),
-#     width = 1000, height = 1000, units = "px", pointsize = 12,
-#     bg = "white", res = NA, family = "", restoreConsole = TRUE,
-#     type = "windows",
-#     symbolfamily = "default"
-# )
-# draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
-# #dev.off()
-# while (!is.null(dev.list()))  dev.off()
+(AllGenes_Heatmap <- Heatmap(mat.zs,
+                            cluster_columns = TRUE,
+                            cluster_rows = TRUE,
+                            column_labels = colnames(mat.zs),
+                            name = glue("DE Genes- {Comparison}"),
+                            show_row_names = FALSE,
+                            use_raster = TRUE,
+                            raster_quality = 10,
+                            column_names_gp = grid::gpar(fontsize = 12),
+                            #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
+                            heatmap_legend_param = list(legend_direction = "horizontal",
+                                                        legend_width = unit(x= 5, units = "cm"))))
+
+jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg") ),
+    width = 1000, height = 1000, units = "px", pointsize = 12,
+    bg = "white", res = NA, family = "", restoreConsole = TRUE,
+    type = "windows",
+    symbolfamily = "default"
+)
+draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
+#dev.off()
+while (!is.null(dev.list()))  dev.off()
 
 # LongHeatMap_Allgenes <- Heatmap(mat.zs,
 #                                 cluster_columns = TRUE,
@@ -527,7 +512,7 @@ colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names f
 # dev.off()
 
 ### Heatmap with tighter constraints (all genes together!)
-sigs1df <- resdf[(resdf$baseMean > 1000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+sigs1df <- resdf[(resdf$baseMean > 10000) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
 mat1.zs <- t(apply(mat1, 1, scale)) # Calculating the zscore for each row
 colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
@@ -580,11 +565,11 @@ GO_UPReg_enrichtreeplot <- plot(treeplot(edox2))
 saveplot(plot = GO_UPReg_enrichtreeplot, plotname = "GO_UPReg_enrichtreeplot")
 (GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE))
 saveplot(plot = GO_UPReg_emapplot, plotname = "GO_UPReg_emapplot")
+
 ### GO Terms for DOWN Regulated Genes
 DOWNgene_ENS_ID <- (significantgenes_df_DOWN$ensemblID)
-GO_DOWNRegResults <- enrichGO(gene = DOWNgene_ENS_ID, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL",
-                            ont = "BP", pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.05,
-                            readable = TRUE)
+GO_DOWNRegResults <- enrichGO(gene = DOWNgene_ENS_ID, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL", ont = "BP",
+                              pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.05, readable = TRUE)
 GO_DOWNRegResults_df <- as.data.frame(GO_DOWNRegResults)
 write.csv(GO_DOWNRegResults_df, file.path(Comparison_path , glue("GO_DOWNRegResults_df_{Comparison}.csv")))
 
