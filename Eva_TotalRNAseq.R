@@ -3,13 +3,47 @@
 # # Author : Keshav Prasad Gubbi
 
 # # Libraries
-Package_List <- c("dplyr", "DESeq2", "pheatmap",  "PoiClaClu", "RColorBrewer","vsn", "EnhancedVolcano", "gplots",
-                  "org.Mm.eg.db", "stringr", "genefilter", "tidyverse", "AnnotationDbi", "ComplexHeatmap", "DOSE",
-                  "clusterProfiler", "ggrepel", "GO.db", "GOstats", "gage", "gageData", "GOSemSim", "enrichplot",
-                  "ggnewscale", "glue", "ggupset", "FactoMineR", "factoextra", "here")
-not_installed <- Package_List[!(Package_List %in% installed.packages()[ , "Package"])] # Extract not installed packages
-if(length(not_installed)) install.packages(not_installed)  # Install the uninstalled packages
-invisible(lapply(Package_List, suppressPackageStartupMessages(library), character.only = TRUE))
+Package_List <-
+  c(
+    "dplyr",
+    "DESeq2",
+    "pheatmap",
+    "PoiClaClu",
+    "RColorBrewer",
+    "vsn",
+    "EnhancedVolcano",
+    "gplots",
+    "org.Mm.eg.db",
+    "stringr",
+    "genefilter",
+    "tidyverse",
+    "AnnotationDbi",
+    "ComplexHeatmap",
+    "DOSE",
+    "clusterProfiler",
+    "ggrepel",
+    "GO.db",
+    "GOstats",
+    "gage",
+    "gageData",
+    "GOSemSim",
+    "enrichplot",
+    "ggnewscale",
+    "glue",
+    "ggupset",
+    "FactoMineR",
+    "factoextra",
+    "here"
+  )
+not_installed <-
+  Package_List[!(Package_List %in% installed.packages()[, "Package"])] # Extract not installed packages
+if (length(not_installed))
+  install.packages(not_installed)  # Install the uninstalled packages
+invisible(lapply(
+  Package_List,
+  suppressPackageStartupMessages(library),
+  character.only = TRUE
+))
 
 # File Path Declarations
 here::i_am(path = "Eva_TotalRNAseq.R")
@@ -34,7 +68,11 @@ Comparison_Condition <- "MouseType"
 
 # Folder Paths for Different Comparisons
 Comparison_path <- file.path(here(), glue("{Comparison}"))
-if (!dir.exists(here(Comparison_path))) { dir.create(here(Comparison_path)) } else { print("Dir already exists!") }
+if (!dir.exists(here(Comparison_path))) {
+  dir.create(here(Comparison_path))
+} else {
+  print("Dir already exists!")
+}
 paste0(Comparison_path)
 
 # for Example: UninfectedVSInfected is the volcano plot notation: for Deseq2 results,
@@ -43,63 +81,62 @@ paste0(Comparison_path)
 # counts Matrix processing
 ## Input the Count Matrix
 countsmatrix <- read.csv(file.path(here(), "featurecounts_Eva_totalRNAseq.csv"))
+nrow(countsmatrix)
 ### Clean up the Count Matrix
 rownames(countsmatrix) <- countsmatrix[, 2] # converting first column of gene ID into rownames,
-# to be used for sanity check later
-nrow(countsmatrix)
-# GenderGenes Filtering}
-gendergenes_biomart <- data.frame(read.csv(file = file.path(here(), "/20221017_y-chromosomal genes_biomart.txt" ),
-                                           stringsAsFactors = FALSE))
+
+# GenderGenes Filtering
+gendergenes_biomart <- data.frame(read.csv(file = file.path(here(), "/20221017_y-chromosomal genes_biomart.txt")))
 ## Remove rows with only empty cells
-gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", MARGIN = 1, all),]
-nrow(gendergenes_biomart)
-colnames(gendergenes_biomart)[1] <- "EnsemblID" # Just trying to get the colnames of ensembl column to be same.
+gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", MARGIN = 1, all),] %>%
+  drop_na() %>% # drop Na rows so that it reduces size of matrix. Na values arise due to 1:many mapping of ensembl.
+  rename(EnsemblID = 1) # change the name of 2nd column to genename
 
 # We can use the anti_join() function to return all rows in the first data frame that do not have a matching row
 # in the second data frame
-countsmatrix <- anti_join(countsmatrix, gendergenes_biomart, by = 'EnsemblID')
-## Removal of Gender Genes from ENSEMBL ID column itself
-# Filter out the other 5 known gender genes as well from other RNAseq Projects.
-countsmatrix <- countsmatrix %>% filter(countsmatrix$EnsemblID != "ENSMUSG00000086503",
-                                        countsmatrix$EnsemblID != "ENSMUSG00000097571",
-                                        countsmatrix$EnsemblID != "ENSMUSG00000086370",
-                                        countsmatrix$EnsemblID != "ENSMUSG00000031329",
-                                        countsmatrix$EnsemblID != "ENSMUSG00000030057")
+countsmatrix <- anti_join(countsmatrix, gendergenes_biomart, by = 'EnsemblID')## Removal of Gender Genes from ENSEMBL ID column itself
 nrow(countsmatrix)
-
-# It is IMPORTANT to keep the names of the genes in the rownames
-countsmatrix <- subset(countsmatrix, select = -c(X, EnsemblID)) # dropping the X column
-## Display the column names
-colnames(countsmatrix)
+# Filter out the other 5 known gender genes as well from other RNAseq Projects.
+countsmatrix <-
+  countsmatrix %>% filter(
+    countsmatrix$EnsemblID != "ENSMUSG00000086503",
+    countsmatrix$EnsemblID != "ENSMUSG00000097571",
+    countsmatrix$EnsemblID != "ENSMUSG00000086370",
+    countsmatrix$EnsemblID != "ENSMUSG00000031329",
+    countsmatrix$EnsemblID != "ENSMUSG00000030057"
+  )
+nrow(countsmatrix)
 
 ### Annotating and Exporting ENSEMBL ID into Gene Symbols
 # Adding genes annotated from ENSEMBL ID to Gene symbols and ENTREZ Id to countsmatrix table.
 # Will be keeping the symbols and entrez columns to be added later into results table as it is for later use
 cm_row <- rownames(countsmatrix)
 # Mapping the ENSEMBL ID to Symbol and ENTREZ ID
-symbols <- mapIds(org.Mm.eg.db, keys = cm_row, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+symbols <- as.data.frame(
+  mapIds(
+    org.Mm.eg.db,
+    keys = cm_row,
+    column = "SYMBOL",
+    keytype = "ENSEMBL",
+    multiVals = "first"
+  )
+) %>%
+  rownames_to_column(var = "EID") %>% # move the ensemblID in rownames to separate column called EID
+  drop_na() %>% # drop Na rows so that it reduces size of matrix. Na values arise due to 1:many mapping of ensembl.
+  rename(genename = 2) # change the name of 2nd column to genename
 
-# Create symbols column
-symbols <- symbols[!is.na(symbols)]
-symbols <- symbols[match(rownames(countsmatrix), names(symbols))]
+countsmatrix <- countsmatrix %>%
+  filter(countsmatrix$EnsemblID %in% symbols$EID) %>% # keep the genes in countmatrix that have gene names in symbols, based on matching ensemblID columns.
+  mutate(genename = symbols$genename)
 
-# Creating a new column called genename and putting in the symbols and entrez columns into count matrix
-countsmatrix$genename <- symbols
-
-# Removing all rows with NA values for genenames, so that those rows are filtered out.
-countsmatrix <- unique(countsmatrix[rowSums(is.na(countsmatrix)) == 0, ]) # Apply rowSums & is.na
-# Moving the ENSEMBL ID from rownames into separate column for itself.
-countsmatrix <- tibble::rownames_to_column(countsmatrix, var = "E_ID")
-# Removing the duplicated genes so that then these genes can be made into rownames for countsmatrix
-countsmatrix <- distinct(countsmatrix[!duplicated(countsmatrix$genename), ])
-# Now make the ganename column into rownames of count matrix
-rownames(countsmatrix) <- countsmatrix[, "genename"]
-
-# Dropping the column E_ID, genenames so that only numeric values are present in it as an input of DESEq Object.
-countsmatrix <- subset(countsmatrix, select = -c(genename, E_ID))
+# Removing the duplicated genes & then these genes put into rownames for countsmatrix and drop EnsemblId column
+countsmatrix <- countsmatrix[!duplicated(countsmatrix$genename), ] %>%
+  remove_rownames() %>%
+  column_to_rownames(var = "genename") %>%
+  select(-c(X, EnsemblID)) %>%
+  as.matrix()
 
 # Changing countsmatrix into Matrix of numeric values so that only numeric values are present in it as an input of DESEq Object.
-countsmatrix <- as.matrix(countsmatrix)
 class(countsmatrix) <- "numeric"
 
 ## Develop ColData by importing metadata
@@ -108,39 +145,78 @@ coldata <- as.data.frame(read.csv(file.path(here(), "Samples_eva.csv")))
 colnames(coldata) <- c("Sample_Name", "MouseType", "condition") # change name of one of the columns
 rownames(coldata) <- coldata[, 1] # move the sample names into row names
 # The metadata can be found in a df called coldata!
-## the elements from Sample_Name from coldata must the the colnames of countsmatrix
+## the elements from Sample_Name from coldata must match the the colnames of countsmatrix
 colnames(countsmatrix) <- coldata$Sample_Name
 
 # # *****************Now to the comparisons*************
 ### Reduce larger Matrix to smaller one - based on comparison
-paste0(Comparison )
-switch(Comparison,
-       "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ])},
-       "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])},
-       "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 9, 10, 11),])},
-       "adult_GFVsd7_GF" = {(coldata <- coldata[c(5, 6, 7, 15, 16, 17),])},
-       "adult_WTVsd7_WT" = {(coldata <- coldata[c(1, 2, 3, 12, 13, 14),])},
-       "adult_GFVsadult_WT" = {(coldata <- coldata[c(12, 13, 14, 15, 16, 17),])},
-       "adult_GFVsadult_SPF" = {(coldata <- coldata[c(15, 16, 17, 18, 19, 20),])}
+paste0(Comparison)
+switch(
+  Comparison,
+  "adult_spfVsd7_spf" = {
+    (coldata <- coldata[c(9, 10, 11, 18, 19, 20), ])
+  },
+  "d7_WTVsd7_spF" = {
+    (coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])
+  },
+  "d7_GFVsd7_SPF" = {
+    (coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11),])
+  },
+  "adult_GFVsd7_GF" = {
+    (coldata <- coldata[c(5, 6, 7, 8, 15, 16, 17),])
+  },
+  "adult_WTVsd7_WT" = {
+    (coldata <- coldata[c(1, 2, 3, 12, 13, 14),])
+  },
+  "adult_GFVsadult_WT" = {
+    (coldata <- coldata[c(12, 13, 14, 15, 16, 17),])
+  },
+  "adult_GFVsadult_SPF" = {
+    (coldata <- coldata[c(15, 16, 17, 18, 19, 20),])
+  }
 )
-switch(Comparison,
-       "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])},
-       "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])},
-       "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 9, 10, 11)])},
-       "adult_GFVsd7_GF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 15, 16, 17)])},
-       "adult_WTVsd7_WT" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])},
-       "adult_GFVsadult_WT" = {(countsmatrix <- countsmatrix[, c(12, 13, 14, 15, 16, 17)])},
-       "adult_GFVsadult_SPF" = {(countsmatrix <- countsmatrix[, c(15, 16, 17, 18, 19, 20)])}
+switch(
+  Comparison,
+  "adult_spfVsd7_spf" = {
+    (countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])
+  },
+  "d7_WTVsd7_spF" = {
+    (countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])
+  },
+  "d7_GFVsd7_SPF" = {
+    (countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)])
+  },
+  "adult_GFVsd7_GF" = {
+    (countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 15, 16, 17)])
+  },
+  "adult_WTVsd7_WT" = {
+    (countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])
+  },
+  "adult_GFVsadult_WT" = {
+    (countsmatrix <- countsmatrix[, c(12, 13, 14, 15, 16, 17)])
+  },
+  "adult_GFVsadult_SPF" = {
+    (countsmatrix <- countsmatrix[, c(15, 16, 17, 18, 19, 20)])
+  }
 )
 # **********************FUNCTIONS**************************************************************************************
 # Function to save generic plots
 saveplot <- function(plot, plotname) {
   # Function to save the plots
   extension <- ".jpeg"
-  ggsave(filename = file.path(Comparison_path, paste(plotname, glue("_{Comparison}_"), extension),sep=""),
-         plot = plot, dpi = 300, width = 10, height = 10, units = "in")
+  ggsave(
+    filename = file.path(Comparison_path, paste(
+      plotname, glue("_{Comparison}_"), extension
+    ), sep = ""),
+    plot = plot,
+    dpi = 300,
+    width = 10,
+    height = 10,
+    units = "in"
+  )
   #dev.off()
-  while (!is.null(dev.list()))  dev.off()
+  while (!is.null(dev.list()))
+    dev.off()
 }
 # **********************DESeq Analysis********************************
 # Sanity Check for DDS
@@ -149,11 +225,17 @@ ncol(countsmatrix) == nrow(coldata)
 dim(countsmatrix)
 
 # Create DEseq Object based on design that was chosen through the Comparison_Condition that was chosen at the begininning of the script run.
-if (Comparison_Condition == "MouseType"){
+if (Comparison_Condition == "MouseType") {
   ## Creating the DESeq Data set Object
-  dds <- DESeqDataSetFromMatrix(countData = countsmatrix, colData = coldata, design = ~MouseType)
-}else {
-  dds <- DESeqDataSetFromMatrix(countData = countsmatrix, colData = coldata, design = ~condition)
+  dds <-
+    DESeqDataSetFromMatrix(countData = countsmatrix,
+                           colData = coldata,
+                           design = ~ MouseType)
+} else {
+  dds <-
+    DESeqDataSetFromMatrix(countData = countsmatrix,
+                           colData = coldata,
+                           design = ~ condition)
 }
 
 # Further filtering of low count genes
@@ -170,110 +252,176 @@ sampleDistMatrix <- as.matrix(sampleDists)
 rownames(sampleDistMatrix) <- vsd$Sample_Name
 colnames(sampleDistMatrix) <- vsd$Sample_Name
 colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
-(EuclideanDistanceHeatmap <- pheatmap(sampleDistMatrix,
-                                      clustering_distance_rows = sampleDists,
-                                      clustering_distance_cols = sampleDists,
-                                      main = glue("Euclidean Distance of Samples: {Comparison}"),
-                                      col = colors))
+(
+  EuclideanDistanceHeatmap <- pheatmap(
+    sampleDistMatrix,
+    clustering_distance_rows = sampleDists,
+    clustering_distance_cols = sampleDists,
+    main = glue("Euclidean Distance of Samples: {Comparison}"),
+    col = colors
+  )
+)
 ### Poisson Distance between Samples
-poisd <- PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
+poisd <-
+  PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
 samplePoisDistMatrix <- as.matrix(poisd$dd)
 rownames(samplePoisDistMatrix) <- dds$Sample_Name
 colnames(samplePoisDistMatrix) <- dds$Sample_Name
 colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
-(poisson_dist_plot <- pheatmap(samplePoisDistMatrix,
-                               clustering_distance_rows = poisd$dd,
-                               clustering_distance_cols = poisd$dd,
-                               main = glue("Poisson Distance of Samples: {Comparison}"),
-                               col = colors
-))
+(
+  poisson_dist_plot <- pheatmap(
+    samplePoisDistMatrix,
+    clustering_distance_rows = poisd$dd,
+    clustering_distance_cols = poisd$dd,
+    main = glue("Poisson Distance of Samples: {Comparison}"),
+    col = colors
+  )
+)
 #  **************************PCA Plot**********************************
 # Functions for Plot aethetics and saving PCA Plots
-color_values <- c("black", "black", "red", "red", "red", "red", "red", "red", "red", "red", "black", "black")
+color_values <-
+  c(
+    "black",
+           "black",
+           "red",
+           "red",
+           "red",
+           "red",
+           "red",
+           "red",
+           "red",
+           "red",
+           "black",
+           "black"
+  )
 # The basic set of common aesthetic settings for PCA plots,
-theme.my.own <- list(theme_bw(),
-                      geom_point(size = 3),
-                      coord_fixed(),
-                      scale_y_continuous(breaks = seq(-100, 100, 10),
-                                         sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)),
-                      scale_x_continuous(breaks = seq(-50, 50, 10),
-                                         sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)),
-                      theme_classic(),
-                      geom_hline(yintercept = 0, color = "gray", linewidth = 1),
-                      geom_vline(xintercept = 0, color = "gray", linewidth = 1),
-                      theme(text = element_text(size = 15),
-                            axis.text = element_text(size = 15),
-                            legend.position = "bottom",
-                            aspect.ratio = 1),
-                      #geom_text(size = 4, hjust = 0, vjust = 0),
-                      geom_text_repel(size = 4, min.segment.length = 0.1)
+theme.my.own <- list(
+  theme_bw(),
+  geom_point(size = 3),
+  coord_fixed(),
+  scale_y_continuous(
+    breaks = seq(-100, 100, 10),
+    sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+  ),
+  scale_x_continuous(
+    breaks = seq(-50, 50, 10),
+    sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+  ),
+  theme_classic(),
+  geom_hline(
+    yintercept = 0,
+    color = "gray",
+    linewidth = 1
+  ),
+  geom_vline(
+    xintercept = 0,
+    color = "gray",
+    linewidth = 1
+  ),
+  theme(
+    text = element_text(size = 15),
+    axis.text = element_text(size = 15),
+    legend.position = "bottom",
+    aspect.ratio = 1
+  ),
+  #geom_text(size = 4, hjust = 0, vjust = 0),
+  geom_text_repel(size = 4, min.segment.length = 0.1)
 )
 # PCA Plot Calculation
 # Calculating all PCA Values
-plotPCA_local <- function(object, intgroup = "condition", ntop = 500, returnData = TRUE, nPC = 4) {
-  # calculate the variance for each gene
-  rv <- rowVars(assay(object))
-  ntop <- 500
-  # select the ntop genes by variance
-  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
-  # perform a PCA on the data in assay(x) for the selected genes
-  pca <- prcomp(t(assay(object)[select, ]))
-  # summary(pca)
-  # the contribution to the total variance for each component
-  percentVar <- pca$sdev^2 / sum(pca$sdev^2)
-  if (!all(intgroup %in% names(colData(object)))) {
-    stop("the argument 'intgroup' should specify columns of colData(dds)")
+plotPCA_local <-
+  function(object,
+           intgroup = "condition",
+           ntop = 500,
+           returnData = TRUE,
+           nPC = 4) {
+    # calculate the variance for each gene
+    rv <- rowVars(assay(object))
+    ntop <- 500
+    # select the ntop genes by variance
+    select <-
+      order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+    # perform a PCA on the data in assay(x) for the selected genes
+    pca <- prcomp(t(assay(object)[select, ]))
+    # summary(pca)
+    # the contribution to the total variance for each component
+    percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+    if (!all(intgroup %in% names(colData(object)))) {
+      stop("the argument 'intgroup' should specify columns of colData(dds)")
+    }
+    intgroup.df <-
+      as.data.frame(colData(object)[, intgroup, drop = FALSE])
+    # add the intgroup factors together to create a new grouping factor
+    group <- if (length(intgroup) > 1) {
+      factor(apply(intgroup.df, 1, paste, collapse = ":"))
+    } else {
+      colData(object)[[intgroup]]
+    }
+    # assembly the data for the plot
+    d <-
+      cbind(pca$x[, seq_len(min(nPC, ncol(pca$x))), drop = FALSE],
+            data.frame(group = group, intgroup.df, name = colnames(object)))
+    if (returnData) {
+      attr(d, "percentVar") <- percentVar[1:nPC]
+      # l <- list(pca,d)
+      # return(l)
+      return(d)
+    }
   }
-  intgroup.df <- as.data.frame(colData(object)[, intgroup, drop = FALSE])
-  # add the intgroup factors together to create a new grouping factor
-  group <- if (length(intgroup) > 1) {
-    factor(apply(intgroup.df, 1, paste, collapse = ":"))
-  } else {
-    colData(object)[[intgroup]]
-  }
-  # assembly the data for the plot
-  d <- cbind(
-    pca$x[, seq_len(min(nPC, ncol(pca$x))), drop = FALSE],
-    data.frame(group = group, intgroup.df, name = colnames(object))
-  )
-  if (returnData) {
-    attr(d, "percentVar") <- percentVar[1:nPC]
-    # l <- list(pca,d)
-    # return(l)
-    return(d)
-  }
-}
 ## PCA Plot with VST Data
 ### Function for calculating percentvar for different variables
 percentvar_calculation <- function(pcaData_variable) {
-  percentvar_variable <- round(100 * attr(pcaData_variable, "percentVar"), digits = 3)
+  percentvar_variable <-
+    round(100 * attr(pcaData_variable, "percentVar"), digits = 3)
   return(percentvar_variable)
 }
 
-pcaData <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"), returnData = T)
+pcaData <-
+  plotPCA_local(vsd,
+                intgroup = c("condition", "Sample_Name"),
+                returnData = T)
 #pcaData <- plotPCA_local(vsd, intgroup = c("MouseType", "Sample_Name"), returnData = T)
 pcaData
 percentVar <- percentvar_calculation(pcaData)
 percentVar
 
 # PC Plot: PC1 vs PC2
-(PCAplot_vst <- ggplot(pcaData, aes(x = PC1, y = PC2, color = Sample_Name, label = Sample_Name)) +
-  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
-  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-  ggtitle(glue("PCA: {Comparison}")) +
-  #scale_colour_manual(values = color_values) +
-  theme.my.own)
+(
+  PCAplot_vst <-
+    ggplot(
+      pcaData,
+      aes(
+        x = PC1,
+        y = PC2,
+        color = Sample_Name,
+        label = Sample_Name
+      )
+    ) +
+    xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+    ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+    ggtitle(glue("PCA: {Comparison}")) +
+    #scale_colour_manual(values = color_values) +
+    theme.my.own
+)
 saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
 
 # PCA Plot : PC3 vs PC4
-(PCAplot_pc34 <- ggplot(
-  pcaData,
-  aes(x = PC3,y = PC4, color = Sample_Name, label = Sample_Name)) +
-  xlab(paste0("PC3: ", percentVar[3], "% variance")) +
-  ylab(paste0("PC4: ", percentVar[4], "% variance")) +
-  ggtitle(glue("PCA: {Comparison}")) +
-  scale_colour_manual(values = color_values) +
-  theme.my.own)
+(
+  PCAplot_pc34 <- ggplot(
+    pcaData,
+    aes(
+      x = PC3,
+      y = PC4,
+      color = Sample_Name,
+      label = Sample_Name
+    )
+  ) +
+    xlab(paste0("PC3: ", percentVar[3], "% variance")) +
+    ylab(paste0("PC4: ", percentVar[4], "% variance")) +
+    ggtitle(glue("PCA: {Comparison}")) +
+    scale_colour_manual(values = color_values) +
+    theme.my.own
+)
 saveplot(PCAplot_pc34, plotname = "PCA_PC3vsPC4")
 
 # ************************FactoExtra************************
@@ -282,8 +430,10 @@ saveplot(PCAplot_pc34, plotname = "PCA_PC3vsPC4")
 rv <- rowVars(assay(vsd))
 ntop <- 500
 # select the ntop genes by variance
-select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
-res.pca <- PCA(t(assay(vsd)[select, ]), graph = FALSE, scale.unit = FALSE)
+select <-
+  order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+res.pca <-
+  PCA(t(assay(vsd)[select, ]), graph = FALSE, scale.unit = FALSE)
 summary.PCA(res.pca)
 
 # Visualize eigenvalues/variances
@@ -297,164 +447,314 @@ heat.colors <- brewer.pal(6, "RdYlBu")
 (Genes_Biplot <- fviz_pca_biplot(res.pca, repel = TRUE))
 saveplot(Genes_Biplot, plotname = "Genes_Biplot")
 
-(Genes_contributions_Biplot <- fviz_pca_var(res.pca, col.var = "contrib", repel = TRUE,
-                                            gradient.cols = c("Gray", "blue", "pink", "yellow",
-                                                              "orange", "green", "red", "black")))
-saveplot(Genes_contributions_Biplot, plotname ="Genes_contributions_Biplot")
+(
+  Genes_contributions_Biplot <-
+    fviz_pca_var(
+      res.pca,
+      col.var = "contrib",
+      repel = TRUE,
+      gradient.cols = c(
+        "Gray",
+        "blue",
+        "pink",
+        "yellow",
+        "orange",
+        "green",
+        "red",
+        "black"
+      )
+    )
+)
+saveplot(Genes_contributions_Biplot, plotname = "Genes_contributions_Biplot")
 # Contributions of variables to PC2
-(top25_genes_dim2 <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 25))
+(top25_genes_dim2 <-
+    fviz_contrib(
+      res.pca,
+      choice = "var",
+      axes = 2,
+      top = 25
+    ))
 saveplot(top25_genes_dim2, plotname = "top25_genes_dim2")
 # # Contributions of variables to PC1
-(top25_genes_dim1 <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 25))
+(top25_genes_dim1 <-
+    fviz_contrib(
+      res.pca,
+      choice = "var",
+      axes = 1,
+      top = 25
+    ))
 saveplot(top25_genes_dim1, plotname = "top25_genes_dim1")
 
 # ********************************DGE Results********************************
 ### Running the differential expression pipeline
-dds <- DESeq(dds)
+dds <-
+  DESeq(dds)
 
 ### Building the results table
 ### 2nd term will be the Nr.(Infected)
-switch(Comparison,
-       "adult_spfVsd7_spf" = {res <- results(dds, contrast = c("condition", "d7", "adult"))},# adult_spfVsd7_spf
-       "adult_GFVsd7_GF"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))}, #adult_GFVsd7_GF
-       "adult_WTVsd7_WT"   = {res <- results(dds, contrast = c("condition", "d7", "adult"))}, #adult_WTVsd7_WT
-       "d7_WTVsd7_spF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "WLD"))}, # d7_WTVsd7_spF
-       "d7_GFVsd7_SPF"     = {res <- results(dds, contrast = c("MouseType", "SPF", "GF"))},# d7_GFVsd7_SPF
-       "adult_GFVsadult_WT"= {res <- results(dds, contrast = c("MouseType", "WLD", "GF"))},# adult_GFVsadult_WT
-       "adult_GFVsadult_SPF" = {res <- results(dds, contrast = c("MouseType", "SPF", "GF"))},# adult_GFVsadult_SPF
+switch(
+  Comparison,
+  "adult_spfVsd7_spf" = {
+    res <-
+      results(dds, contrast = c("condition", "d7", "adult"))
+  },
+  # adult_spfVsd7_spf
+  "adult_GFVsd7_GF"   = {
+    res <-
+      results(dds, contrast = c("condition", "d7", "adult"))
+  },
+  #adult_GFVsd7_GF
+  "adult_WTVsd7_WT"   = {
+    res <-
+      results(dds, contrast = c("condition", "d7", "adult"))
+  },
+  #adult_WTVsd7_WT
+  "d7_WTVsd7_spF"     = {
+    res <-
+      results(dds, contrast = c("MouseType", "SPF", "WLD"))
+  },
+  # d7_WTVsd7_spF
+  "d7_GFVsd7_SPF"     = {
+    res <-
+      results(dds, contrast = c("MouseType", "SPF", "GF"))
+  },
+  # d7_GFVsd7_SPF
+  "adult_GFVsadult_WT" = {
+    res <-
+      results(dds, contrast = c("MouseType", "WLD", "GF"))
+  },
+  # adult_GFVsadult_WT
+  "adult_GFVsadult_SPF" = {
+    res <-
+      results(dds, contrast = c("MouseType", "SPF", "GF"))
+  },
+  # adult_GFVsadult_SPF
 )
 write.csv(as.data.frame(res), file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
 
 ### Histogram of p-values
-hist(res$pvalue, breaks = 100, col = "grey50", border = "blue")
+hist(
+  res$pvalue,
+  breaks = 100,
+  col = "grey50",
+  border = "blue"
+)
 
 # Map Gene symbols to Ensembl and Entrez ID
-resdf <- tibble::rownames_to_column(as.data.frame(res), var = "symbol")
-gn <- resdf$symbol
+resdf <-
+  tibble::rownames_to_column(as.data.frame(res), var = "symbol")
+gn <-
+  resdf$symbol
 # Mapping the Symbol to ENTREZ ID
-entrez <- mapIds(org.Mm.eg.db, keys = gn, column = "ENTREZID", keytype = "SYMBOL", multiVals = "first")
-ensembl_id <- mapIds(org.Mm.eg.db, keys = gn, column = "ENSEMBL", keytype = "SYMBOL", multiVals = "first")
-resdf$entrez <- entrez
-resdf$ensemblID <- ensembl_id
-resdf <- resdf %>% filter(!is.na(symbol) & !is.na(entrez))
+entrez <-
+  mapIds(
+    org.Mm.eg.db,
+    keys = gn,
+    column = "ENTREZID",
+    keytype = "SYMBOL",
+    multiVals = "first"
+  )
+ensembl_id <-
+  mapIds(
+    org.Mm.eg.db,
+    keys = gn,
+    column = "ENSEMBL",
+    keytype = "SYMBOL",
+    multiVals = "first"
+  )
+resdf$entrez <-
+  entrez
+resdf$ensemblID <-
+  ensembl_id
+resdf <-
+  resdf %>% filter(!is.na(symbol) & !is.na(entrez))
 
 ## Differentially Expressed Genes that are statistically Significant
-resdf$diffexpressed <- "NS"
+resdf$diffexpressed <-
+  "NS"
 # if log2Foldchange > 1.0 and pvalue < 0.05, set as "UP"
-resdf$diffexpressed[resdf$log2FoldChange > 1.0 & resdf$pvalue < 0.05] <- "UP"
+resdf$diffexpressed[resdf$log2FoldChange > 1.0 &
+                      resdf$pvalue < 0.05] <- "UP"
 # if log2Foldchange < -1.0 and pvalue < 0.05, set as "DOWN"
-resdf$diffexpressed[resdf$log2FoldChange < -1.0 & resdf$pvalue < 0.05] <- "DOWN"
+resdf$diffexpressed[resdf$log2FoldChange < -1.0 &
+                      resdf$pvalue < 0.05] <- "DOWN"
 # Create a new column "delabel" to de, that will contain the name of genes differentially expressed (NA in case they are not)
 # resdf$delabel <- NA
 # resdf$delabel[resdf$diffexpressed != "NS"] <- resdf$symbol[resdf$diffexpressed != "NS"]
 
 # Significant DE Genes Table
-significantgenes_df <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
-write.csv(significantgenes_df, file = file.path(Comparison_path , glue("SignificantDEgenes_{Comparison}.csv")))
+significantgenes_df <-
+  resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
+write.csv(significantgenes_df, file = file.path(
+  Comparison_path ,
+  glue("SignificantDEgenes_{Comparison}.csv")
+))
 
 ## ********************************Volcano Plots based on Enhanced Volcano********************************
 # Volcano Plot with pvalue
-volcano1 <- EnhancedVolcano(resdf,
-                            lab = resdf$symbol,
-                            x = "log2FoldChange",
-                            y = "pvalue",
-                            xlab = bquote(~ Log[2] ~ "FoldChange"),
-                            pCutoff = 0.05,
-                            FCcutoff = 1.0,
-                            title = glue("DE genes: Log2FoldChange Vs -Log10 Pvalue: {Comparison}"),
-                            subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
-                            pointSize = 2.0,
-                            labSize = 5.5,
-                            boxedLabels = FALSE,
-                            gridlines.major = FALSE,
-                            gridlines.minor = FALSE,
-                            colAlpha = 0.5,
-                            legendPosition = "bottom",
-                            legendLabSize = 12,
-                            legendIconSize = 4.0,
-                            drawConnectors = T,
-                            widthConnectors = 0.75,
-                            max.overlaps = 10,
-                            axisLabSize = 22
-)
-(volcano1 <- volcano1 + scale_y_continuous(limits = c(0, 8), breaks = seq(0, 8, 1),
-                                           sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) +
-  scale_x_continuous(limits = c(-4, 5), breaks = seq(-4, 5, 1),
-                     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) )
-#xlab(expression(DownRegulated %<->% UpRegulated)))
-saveplot(volcano1, plotname = "Volcano_pvalue")
+volcano1 <-
+  EnhancedVolcano(
+    resdf,
+    lab = resdf$symbol,
+    x = "log2FoldChange",
+    y = "pvalue",
+    xlab = bquote(~ Log[2] ~ "FoldChange"),
+    pCutoff = 0.05,
+    FCcutoff = 1.0,
+    title = glue("DE genes: Log2FoldChange Vs -Log10 Pvalue: {Comparison}"),
+    subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
+    pointSize = 2.0,
+    labSize = 5.5,
+    boxedLabels = FALSE,
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE,
+    colAlpha = 0.5,
+    legendPosition = "bottom",
+    legendLabSize = 12,
+    legendIconSize = 4.0,
+    drawConnectors = T,
+    widthConnectors = 0.75,
+    max.overlaps = 20,
+    axisLabSize = 22,
+    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5, max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+    ylim = c(0, max(-log10(resdf$pvalue)))
+  )
+
+  volcano1 <- volcano1 +
+    scale_y_continuous(
+      limits = c(0, max(-log10(resdf$pvalue)) + 5),
+      breaks = seq(0, max(-log10(resdf$pvalue)) + 5, 10),
+      sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+    ) +
+    scale_x_continuous(
+      limits = c(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+                 ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)),
+      breaks = seq(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+                   ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+                   1),
+      sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+    )
+  # xlab(expression(DownRegulated %<->% UpRegulated)))
+  saveplot(volcano1, plotname = "Volcano_pvalue")
 
 # Volcano Plot with padj.
-volcano2 <- EnhancedVolcano(resdf,
-                            lab = resdf$symbol,
-                            x = "log2FoldChange",
-                            y = "padj",
-                            xlab = bquote(~ Log[2] ~ "FoldChange"),
-                            ylab = bquote(~ Log[10] ~ "Padj"),
-                            pCutoff = 0.05,
-                            FCcutoff = 1.0,
-                            title = glue("DE genes: Log2FoldChange Vs -Log10 Padj: {Comparison}"),
-                            subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
-                            pointSize = 2.0,
-                            labSize = 5.0,
-                            boxedLabels = FALSE,
-                            gridlines.major = FALSE,
-                            gridlines.minor = FALSE,
-                            colAlpha = 0.5,
-                            legendPosition = "bottom",
-                            legendLabSize = 12,
-                            legendIconSize = 4.0,
-                            drawConnectors = T,
-                            widthConnectors = 0.75,
-                            max.overlaps = 10,
-                            axisLabSize = 22
-)
-(volcano2 <- volcano2 + scale_y_continuous(limits = c(0, 4), breaks = seq(0, 4, 1),
-                                           sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) +
-  scale_x_continuous(limits = c(-4, 4), breaks = seq(-4, 4, 1),
-                     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)) )
+volcano2 <-
+  EnhancedVolcano(
+    resdf,
+    lab = resdf$symbol,
+    x = "log2FoldChange",
+    y = "padj",
+    xlab = bquote(~ Log[2] ~ "FoldChange"),
+    ylab = bquote(~ Log[10] ~ "Padj"),
+    pCutoff = 0.05,
+    FCcutoff = 1.0,
+    title = glue("DE genes: Log2FoldChange Vs -Log10 Padj: {Comparison}"),
+    subtitle = bquote(~ Log[2] ~ "|FoldChange| = 1, pvalue < 0.05"),
+    pointSize = 2.0,
+    labSize = 5.0,
+    boxedLabels = FALSE,
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE,
+    colAlpha = 0.5,
+    legendPosition = "bottom",
+    legendLabSize = 12,
+    legendIconSize = 4.0,
+    drawConnectors = T,
+    widthConnectors = 0.75,
+    max.overlaps = 20,
+    axisLabSize = 22,
+    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5, max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+    ylim = c(0, max(-log10(resdf$pvalue)))
+  )
+volcano2 <- volcano2 +
+  scale_y_continuous(
+    limits = c(0, max(-log10(resdf$pvalue)) + 5),
+    breaks = seq(0, max(-log10(resdf$pvalue)) + 5, 10),
+    sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+  ) +
+  scale_x_continuous(
+    limits = c(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+               ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)),
+    breaks = seq(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+                 ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+                 1),
+    sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+  )
 #xlab(expression(DownRegulated %<->% UpRegulated))
 saveplot(volcano2, plotname = "Volcano_padj")
 
 ### Number of Genes from different strains that are contributing to UP/DOWN regulation.
-significantgenes_df_UP <- significantgenes_df[(significantgenes_df$log2FoldChange) > 1, ]# UP Regulation Table
-significantgenes_df_DOWN <- significantgenes_df[(significantgenes_df$log2FoldChange) < -1, ]# DOWN Regulation Table
+significantgenes_df_UP <-
+  significantgenes_df[(significantgenes_df$log2FoldChange) > 1, ]# UP Regulation Table
+significantgenes_df_DOWN <-
+  significantgenes_df[(significantgenes_df$log2FoldChange) < -1, ]# DOWN Regulation Table
 nrow(significantgenes_df_UP)
 nrow(significantgenes_df_DOWN)
-write.csv(significantgenes_df_UP, file.path(Comparison_path, glue("SignificantDE_UPgenes_{Comparison}.csv")))
-write.csv(significantgenes_df_DOWN, file.path(Comparison_path, glue("SignificantDE_DOWNgenes_{Comparison}.csv")))
+write.csv(significantgenes_df_UP, file.path(
+  Comparison_path,
+  glue("SignificantDE_UPgenes_{Comparison}.csv")
+))
+write.csv(significantgenes_df_DOWN, file.path(
+  Comparison_path,
+  glue("SignificantDE_DOWNgenes_{Comparison}.csv")
+))
 
 ## ********************************Z-score based Gene Heatmaps********************************
 # Determining the significant Genes based on Log2FC and pvalue thresholds
-sigs2df <- resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
+sigs2df <-
+  resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
 
 # mat <- counts(dds1, normalized = TRUE)[rownames(sigsdf),]
-mat <- counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames(counts(dds)), ]
-mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
-colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
+mat <-
+  counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames(counts(dds)), ]
+mat.zs <-
+  t(apply(mat, 1, scale)) # Calculating the zscore for each row
+colnames(mat.zs) <- coldata$Sample_Name# need to provide correct sample names for each of the columns
 
-# (AllGenes_Heatmap <- Heatmap(mat.zs,
-#                             cluster_columns = TRUE,
-#                             cluster_rows = TRUE,
-#                             column_labels = colnames(mat.zs),
-#                             name = glue("DE Genes- {Comparison}"),
-#                             show_row_names = FALSE,
-#                             use_raster = TRUE,
-#                             raster_quality = 10,
-#                             column_names_gp = grid::gpar(fontsize = 12),
-#                             #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
-#                             heatmap_legend_param = list(legend_direction = "horizontal",
-#                                                         legend_width = unit(x= 5, units = "cm"))))
-#
-# jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap1_{Comparison}.jpeg") ),
-#     width = 1000, height = 1000, units = "px", pointsize = 12,
-#     bg = "white", res = NA, family = "", restoreConsole = TRUE,
-#     type = "windows",
-#     symbolfamily = "default"
-# )
-# draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
-# #dev.off()
-# while (!is.null(dev.list()))  dev.off()
+write.csv(significantgenes_df_DOWN, file.path(
+  Comparison_path,
+  glue("Allgenes_zscorematrix_{Comparison}.csv")
+))
+
+(
+  AllGenes_Heatmap <- Heatmap(
+    mat.zs,
+    cluster_columns = TRUE,
+    cluster_rows = TRUE,
+    column_labels = colnames(mat.zs),
+    name = glue("DE Genes- {Comparison}"),
+    show_row_names = FALSE,
+    use_raster = TRUE,
+    raster_quality = 10,
+    column_names_gp = grid::gpar(fontsize = 12),
+    #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
+    heatmap_legend_param = list(
+      legend_direction = "horizontal",
+      legend_width = unit(x = 5, units = "cm")
+    )
+  )
+)
+
+jpeg(
+  file = file.path(
+    Comparison_path,
+    glue("/DEGenes_heatmap1_{Comparison}.jpeg")
+  ),
+  width = 1000,
+  height = 1000,
+  units = "px",
+  pointsize = 12,
+  bg = "white",
+  res = NA,
+  family = "",
+  restoreConsole = TRUE,
+  type = "windows",
+  symbolfamily = "default"
+)
+draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
+#dev.off()
+while (!is.null(dev.list()))
+  dev.off()
 # LongHeatMap_Allgenes <- Heatmap(mat.zs,
 #                                 cluster_columns = TRUE,
 #                                 cluster_rows = TRUE,
@@ -473,89 +773,198 @@ colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names f
 # draw(LongHeatMap_Allgenes, heatmap_legend_side = "bottom")
 # dev.off()
 ### Heatmap with tighter constraints (all genes together!)
-sigs1df <- resdf[(resdf$baseMean > 100) & (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
-mat1 <- counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
-mat1.zs <- t(apply(mat1, MARGIN = 1, scale)) # Calculating the zscore for each row
-colnames(mat1.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
+sigs1df <-
+  resdf[(resdf$baseMean > 100) &
+          (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+mat1 <-
+  counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
+mat1.zs <-
+  t(apply(mat1, MARGIN = 1, scale)) # Calculating the zscore for each row
+colnames(mat1.zs) <-
+  coldata$Sample_Name # need to provide correct sample names for each of the columns
 
-Tightconstraints_Heatmap <- Heatmap(mat1.zs,
-                                    cluster_columns = TRUE,
-                                    cluster_rows = TRUE,
-                                    column_labels = colnames(mat1.zs),
-                                    name = glue("DE Genes - {Comparison}"),
-                                    row_labels = rownames(mat1.zs),
-                                    column_names_gp = grid::gpar(fontsize = 18),
-                                    row_names_gp = grid::gpar(fontsize = 20),
-                                    heatmap_legend_param = list(legend_direction = "horizontal",
-                                                                legend_width = unit(x = 5, units ="cm")))
-jpeg(file = file.path(Comparison_path, glue("/DEGenes_heatmap3_{Comparison}.jpeg") ),
-     width = 1000, height = 1500, units = "px", pointsize = 12, bg = "white", res = NA,
-     family = "", restoreConsole = TRUE, type = "windows", symbolfamily = "default")
+Tightconstraints_Heatmap <-
+  Heatmap(
+    mat1.zs,
+    cluster_columns = TRUE,
+    cluster_rows = TRUE,
+    column_labels = colnames(mat1.zs),
+    name = glue("DE Genes - {Comparison}"),
+    row_labels = rownames(mat1.zs),
+    column_names_gp = grid::gpar(fontsize = 18),
+    row_names_gp = grid::gpar(fontsize = 20),
+    heatmap_legend_param = list(
+      legend_direction = "horizontal",
+      legend_width = unit(x = 5, units = "cm")
+    )
+  )
+jpeg(
+  file = file.path(
+    Comparison_path,
+    glue("/DEGenes_heatmap3_{Comparison}.jpeg")
+  ),
+  width = 1000,
+  height = 1500,
+  units = "px",
+  pointsize = 12,
+  bg = "white",
+  res = NA,
+  family = "",
+  restoreConsole = TRUE,
+  type = "windows",
+  symbolfamily = "default"
+)
 draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
-while (!is.null(dev.list()))  dev.off() #dev.off()
+while (!is.null(dev.list()))
+  dev.off() #dev.off()
 
 # ********************************Functional Analysis using Cluster Profiler********************************
 ## GO over-representation analysis
 ### GO Terms for UP Regulated Genes
-UPgene_ENS_ID <- (significantgenes_df_UP$ensemblID)
-GO_UPRegResults <- enrichGO(gene = UPgene_ENS_ID, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL",
-                            ont = "BP", pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.05,
-                            readable = TRUE)
-GO_UPRegResults_df <- as.data.frame(GO_UPRegResults)
-write.csv(GO_UPRegResults_df, file.path(Comparison_path , glue("GO_UPRegResults_df_{Comparison}.csv")))
+UPgene_ENS_ID <-
+  (significantgenes_df_UP$ensemblID)
+GO_UPRegResults <-
+  enrichGO(
+    gene = UPgene_ENS_ID,
+    OrgDb = "org.Mm.eg.db",
+    keyType = "ENSEMBL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05,
+    qvalueCutoff = 0.05,
+    readable = TRUE
+  )
+GO_UPRegResults_df <-
+  as.data.frame(GO_UPRegResults)
+write.csv(GO_UPRegResults_df, file.path(
+  Comparison_path ,
+  glue("GO_UPRegResults_df_{Comparison}.csv")
+))
 # T-Cell Based GO Terms
 # create a TCell based GO term Data frame by extracting the rows that at least partially matches to the word TCELL
-TCell_terms <- c("T cell","lymphocyte", "leukocyte", "mononuclear cell", "cell activation", "immune response")
-GO_UpRegdf_TCell <- GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
+TCell_terms <-
+  c(
+    "T cell",
+    "lymphocyte",
+    "leukocyte",
+    "mononuclear cell",
+    "cell activation",
+    "immune response"
+  )
+GO_UpRegdf_TCell <-
+  GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
 #Warning: I wont be able to detect GO terms that do not have the word cytokines mentioned in their description.
 write.csv(GO_UpRegdf_TCell, file.path(Comparison_path , glue("GO_TCELL_{Comparison}.csv")))
 
 # Functional Analysis Plots
 if (nrow(GO_UPRegResults_df > 0)) {
-GO_UPReg_Barplot <- plot(barplot(GO_UPRegResults, showCategory = 25, font.size = 15,
-                                 title = "UpRegulated", label_format = 45))
-saveplot(plot = GO_UPReg_Barplot, plotname = "GO_UPReg_Barplot")
-GO_UPReg_Dotplot <- plot(dotplot(GO_UPRegResults, showCategory = 25, font.size = 15,
-                                 title = "UpRegulated", label_format = 45))
-saveplot(plot = GO_UPReg_Dotplot, plotname = "GO_UPReg_Dotplot")
-GO_UPReg_Cnetplot <- plot(cnetplot(GO_UPRegResults, showCategory = 15, font.size = 20))
-saveplot(plot = GO_UPReg_Cnetplot, plotname = "GO_UPReg_Cnetplot")
-GO_UPReg_Heatplot <- plot(heatplot(GO_UPRegResults, foldChange = 1))
-saveplot(plot = GO_UPReg_Heatplot, plotname = "GO_UPReg_Heatplot")
-edox2 <- pairwise_termsim(GO_UPRegResults)
-GO_UPReg_enrichtreeplot <- plot(treeplot(edox2))
-saveplot(plot = GO_UPReg_enrichtreeplot, plotname = "GO_UPReg_enrichtreeplot")
-(GO_UPReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE))
-saveplot(plot = GO_UPReg_emapplot, plotname = "GO_UPReg_emapplot")
+  GO_UPReg_Barplot <-
+    plot(
+      barplot(
+        GO_UPRegResults,
+        showCategory = 25,
+        font.size = 15,
+        title = "UpRegulated",
+        label_format = 45
+      )
+    )
+  saveplot(plot = GO_UPReg_Barplot, plotname = "GO_UPReg_Barplot")
+  GO_UPReg_Dotplot <-
+    plot(
+      dotplot(
+        GO_UPRegResults,
+        showCategory = 25,
+        font.size = 15,
+        title = "UpRegulated",
+        label_format = 45
+      )
+    )
+  saveplot(plot = GO_UPReg_Dotplot, plotname = "GO_UPReg_Dotplot")
+  GO_UPReg_Cnetplot <-
+    plot(cnetplot(
+      GO_UPRegResults,
+      showCategory = 15,
+      font.size = 20
+    ))
+  saveplot(plot = GO_UPReg_Cnetplot, plotname = "GO_UPReg_Cnetplot")
+  GO_UPReg_Heatplot <-
+    plot(heatplot(GO_UPRegResults, foldChange = 1))
+  saveplot(plot = GO_UPReg_Heatplot, plotname = "GO_UPReg_Heatplot")
+  edox2 <-
+    pairwise_termsim(GO_UPRegResults)
+  GO_UPReg_enrichtreeplot <-
+    plot(treeplot(edox2))
+  saveplot(plot = GO_UPReg_enrichtreeplot, plotname = "GO_UPReg_enrichtreeplot")
+  (GO_UPReg_emapplot <-
+      emapplot(edox2, showCategory = 25, repel = TRUE))
+  saveplot(plot = GO_UPReg_emapplot, plotname = "GO_UPReg_emapplot")
 } else {
   print("There were 0 rows in ORA analysis results!")
 }
 ### GO Terms for DOWN Regulated Genes
-DOWNgene_ENS_ID <- (significantgenes_df_DOWN$ensemblID)
-GO_DOWNRegResults <- enrichGO(gene = DOWNgene_ENS_ID, OrgDb = "org.Mm.eg.db", keyType = "ENSEMBL", ont = "BP",
-                              pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.05, readable = TRUE)
-GO_DOWNRegResults_df <- as.data.frame(GO_DOWNRegResults)
-write.csv(GO_DOWNRegResults_df, file.path(Comparison_path , glue("GO_DOWNRegResults_df_{Comparison}.csv")))
+DOWNgene_ENS_ID <-
+  (significantgenes_df_DOWN$ensemblID)
+GO_DOWNRegResults <-
+  enrichGO(
+    gene = DOWNgene_ENS_ID,
+    OrgDb = "org.Mm.eg.db",
+    keyType = "ENSEMBL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05,
+    qvalueCutoff = 0.05,
+    readable = TRUE
+  )
+GO_DOWNRegResults_df <-
+  as.data.frame(GO_DOWNRegResults)
+write.csv(GO_DOWNRegResults_df, file.path(
+  Comparison_path ,
+  glue("GO_DOWNRegResults_df_{Comparison}.csv")
+))
 
 if (nrow(GO_DOWNRegResults_df > 0)) {
-  GO_DOWNReg_Barplot <- plot(barplot(GO_DOWNRegResults, showCategory = 25, font.size = 15,
-                                     title = "DOWNRegulated", label_format = 45))
+  GO_DOWNReg_Barplot <-
+    plot(
+      barplot(
+        GO_DOWNRegResults,
+        showCategory = 25,
+        font.size = 15,
+        title = "DOWNRegulated",
+        label_format = 45
+      )
+    )
   saveplot(plot = GO_DOWNReg_Barplot, plotname = "GO_DOWNReg_Barplot")
-  GO_DOWNReg_Dotplot <- plot(dotplot(GO_DOWNRegResults, showCategory = 25, font.size = 15,
-                                     title = "DOWNRegulated", label_format = 45))
+  GO_DOWNReg_Dotplot <-
+    plot(
+      dotplot(
+        GO_DOWNRegResults,
+        showCategory = 25,
+        font.size = 15,
+        title = "DOWNRegulated",
+        label_format = 45
+      )
+    )
   saveplot(plot = GO_DOWNReg_Dotplot, plotname = "GO_DOWNReg_Dotplot")
-  GO_DOWNReg_Cnetplot <- plot(cnetplot(GO_DOWNRegResults, showCategory = 15, font.size = 20))
+  GO_DOWNReg_Cnetplot <-
+    plot(cnetplot(
+      GO_DOWNRegResults,
+      showCategory = 15,
+      font.size = 20
+    ))
   saveplot(plot = GO_DOWNReg_Cnetplot, plotname = "GO_DOWNReg_Cnetplot")
-  GO_DOWNReg_Heatplot <- plot(heatplot(GO_DOWNRegResults, foldChange = 1))
+  GO_DOWNReg_Heatplot <-
+    plot(heatplot(GO_DOWNRegResults, foldChange = 1))
   saveplot(plot = GO_DOWNReg_Heatplot, plotname = "GO_DOWNReg_Heatplot")
-  edox2 <- pairwise_termsim(GO_DOWNRegResults)
-  GO_DOWNReg_enrichtreeplot <- plot(treeplot(edox2))
+  edox2 <-
+    pairwise_termsim(GO_DOWNRegResults)
+  GO_DOWNReg_enrichtreeplot <-
+    plot(treeplot(edox2))
   saveplot(plot = GO_DOWNReg_enrichtreeplot, plotname = "GO_DOWNReg_enrichtreeplot")
 
-  GO_DOWNReg_emapplot <- emapplot(edox2, showCategory = 25, repel = TRUE)
+  GO_DOWNReg_emapplot <-
+    emapplot(edox2, showCategory = 25, repel = TRUE)
   saveplot(plot = GO_DOWNReg_emapplot, plotname = "GO_DOWNReg_emapplot")
 
-}else {
+} else {
   print("There were 0 rows in ORA analysis results!")
 }
-
