@@ -33,7 +33,8 @@ Package_List <-
     "ggupset",
     "FactoMineR",
     "factoextra",
-    "here"
+    "here",
+    "data.table"
   )
 not_installed <-
   Package_List[!(Package_List %in% installed.packages()[, "Package"])] # Extract not installed packages
@@ -53,16 +54,17 @@ here()
 # glue Variable. Define the Comparison and also create the folder for saving all plots and results to be
 # saved as per the comparison
 
-# Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
+Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
 # Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
 # Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
 # Comparison <- "adult_GFVsd7_GF" # d7 GF is the Numerator
 # Comparison <- "adult_GFVsadult_WT" # adult WT is the numerator
-Comparison <- "adult_GFVsadult_SPF" # adult SPF is the numerator
+# Comparison <- "adult_GFVsadult_SPF" # adult SPF is the numerator
 # Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator
 
 # Determine the Comparison Condition: Comment one of them out based on the comparison you are trying to run.
+
 Comparison_Condition <- "MouseType"
 # Comparison_Condition <- "condition"
 
@@ -376,14 +378,28 @@ percentvar_calculation <- function(pcaData_variable) {
   return(percentvar_variable)
 }
 
-pcaData <-
-  plotPCA_local(vsd,
-                intgroup = c("condition", "Sample_Name"),
-                returnData = T)
-#pcaData <- plotPCA_local(vsd, intgroup = c("MouseType", "Sample_Name"), returnData = T)
-pcaData
+
+switch(Comparison,
+       "BL6_InfectedVsControl" = {
+         pcaData <- plotPCA_local(vsd,
+                                  intgroup = c("condition", "Sample_Name"),
+                                  returnData = T)
+       }, # BL6_InfectedVsControl
+       "BL6_ER_HighInducerVsLowInducer" = {
+         pcaData <- plotPCA_local(vsd,
+                                  intgroup = c("Epithelial_response", "Sample_Name"),
+                                  returnData = T)
+       },
+       # Epithelial_response
+       "BL6_MC_HighVsLow" = {
+         pcaData <- plotPCA_local(vsd,
+                                  intgroup = c("microcolonies", "Sample_Name"),
+                                  returnData = T)
+       }, # BL6_microcolonies
+)
+print(pcaData)
 percentVar <- percentvar_calculation(pcaData)
-percentVar
+print(percentVar)
 
 # PC Plot: PC1 vs PC2
 (
@@ -616,14 +632,15 @@ volcano1 <-
     widthConnectors = 0.75,
     max.overlaps = 20,
     axisLabSize = 22,
-    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5, max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-    ylim = c(0, max(-log10(resdf$pvalue)))
+    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
+             max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+    ylim = c(0, max(-log10(resdf$pvalue)) + 5)
   )
 
   volcano1 <- volcano1 +
     scale_y_continuous(
-      limits = c(0, max(-log10(resdf$pvalue)) + 5),
-      breaks = seq(0, max(-log10(resdf$pvalue)) + 5, 10),
+      limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
+      breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5 , 5),
       sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
     ) +
     scale_x_continuous(
@@ -631,7 +648,7 @@ volcano1 <-
                  ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)),
       breaks = seq(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
                    ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-                   1),
+                   2),
       sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
     )
   # xlab(expression(DownRegulated %<->% UpRegulated)))
@@ -663,13 +680,14 @@ volcano2 <-
     widthConnectors = 0.75,
     max.overlaps = 20,
     axisLabSize = 22,
-    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5, max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-    ylim = c(0, max(-log10(resdf$pvalue)))
+    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
+             max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+    ylim = c(0, max(-log10(resdf$pvalue)) + 5)
   )
 volcano2 <- volcano2 +
   scale_y_continuous(
-    limits = c(0, max(-log10(resdf$pvalue)) + 5),
-    breaks = seq(0, max(-log10(resdf$pvalue)) + 5, 10),
+    limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
+    breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5 , 5),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   ) +
   scale_x_continuous(
@@ -677,7 +695,7 @@ volcano2 <- volcano2 +
                ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)),
     breaks = seq(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
                  ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-                 1),
+                 2),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   )
 #xlab(expression(DownRegulated %<->% UpRegulated))
@@ -707,14 +725,10 @@ sigs2df <-
 # mat <- counts(dds1, normalized = TRUE)[rownames(sigsdf),]
 mat <-
   counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames(counts(dds)), ]
-mat.zs <-
-  t(apply(mat, 1, scale)) # Calculating the zscore for each row
+mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
 colnames(mat.zs) <- coldata$Sample_Name# need to provide correct sample names for each of the columns
 
-write.csv(significantgenes_df_DOWN, file.path(
-  Comparison_path,
-  glue("Allgenes_zscorematrix_{Comparison}.csv")
-))
+write.csv(mat.zs, file.path(Comparison_path, glue("Allgenes_zscorematrix_{Comparison}.csv")))
 
 (
   AllGenes_Heatmap <- Heatmap(
@@ -834,26 +848,26 @@ GO_UPRegResults <-
     qvalueCutoff = 0.05,
     readable = TRUE
   )
-GO_UPRegResults_df <-
-  as.data.frame(GO_UPRegResults)
-write.csv(GO_UPRegResults_df, file.path(
-  Comparison_path ,
-  glue("GO_UPRegResults_df_{Comparison}.csv")
-))
-# T-Cell Based GO Terms
+GO_UPRegResults_df <- as.data.frame(GO_UPRegResults)
+write.csv(GO_UPRegResults_df, file.path(Comparison_path , glue("GO_UPRegResults_df_{Comparison}.csv")))
+
+## T-Cell Based GO Terms
 # create a TCell based GO term Data frame by extracting the rows that at least partially matches to the word TCELL
-TCell_terms <-
-  c(
-    "T cell",
-    "lymphocyte",
-    "leukocyte",
-    "mononuclear cell",
-    "cell activation",
-    "immune response"
-  )
-GO_UpRegdf_TCell <-
-  GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
-#Warning: I wont be able to detect GO terms that do not have the word cytokines mentioned in their description.
+# TCell_terms <-
+#   c(
+#     "T cell",
+#     "lymphocyte",
+#     "leukocyte",
+#     "mononuclear cell",
+#     "cell activation",
+#     "immune response"
+#   )
+# GO_UpRegdf_TCell <-
+#   GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
+
+GO_UpRegdf_TCell <- GO_UPRegResults_df %>% filter(grepl("T cell | lymphocyte | leukocyte | mononuclear cell |cell activation | immune response", Description))
+
+#Warning: I wont be able to detect GO terms that do not have the word TCell_terms mentioned in their description.
 write.csv(GO_UpRegdf_TCell, file.path(Comparison_path , glue("GO_TCELL_{Comparison}.csv")))
 
 # Functional Analysis Plots
