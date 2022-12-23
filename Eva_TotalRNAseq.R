@@ -378,24 +378,17 @@ percentvar_calculation <- function(pcaData_variable) {
   return(percentvar_variable)
 }
 
-
-switch(Comparison,
-       "BL6_InfectedVsControl" = {
+switch(Comparison_Condition,
+       "condition" = {
          pcaData <- plotPCA_local(vsd,
                                   intgroup = c("condition", "Sample_Name"),
                                   returnData = T)
-       }, # BL6_InfectedVsControl
-       "BL6_ER_HighInducerVsLowInducer" = {
+       }, #
+       "MouseType" = {
          pcaData <- plotPCA_local(vsd,
-                                  intgroup = c("Epithelial_response", "Sample_Name"),
+                                  intgroup = c("MouseType", "Sample_Name"),
                                   returnData = T)
        },
-       # Epithelial_response
-       "BL6_MC_HighVsLow" = {
-         pcaData <- plotPCA_local(vsd,
-                                  intgroup = c("microcolonies", "Sample_Name"),
-                                  returnData = T)
-       }, # BL6_microcolonies
 )
 print(pcaData)
 percentVar <- percentvar_calculation(pcaData)
