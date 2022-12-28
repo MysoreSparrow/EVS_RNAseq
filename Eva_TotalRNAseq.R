@@ -38,8 +38,9 @@ Package_List <-
   )
 not_installed <-
   Package_List[!(Package_List %in% installed.packages()[, "Package"])] # Extract not installed packages
-if (length(not_installed))
-  install.packages(not_installed)  # Install the uninstalled packages
+if (length(not_installed)) {
+  install.packages(not_installed)
+} # Install the uninstalled packages
 invisible(lapply(
   Package_List,
   suppressPackageStartupMessages(library),
@@ -50,11 +51,25 @@ invisible(lapply(
 here::i_am(path = "Eva_TotalRNAseq.R")
 here()
 
-# Also Create a comparison Variable: That Could be used later for all other comparison titles using a
+# Creating a comparison Variable: That Could be used later for all other comparison titles using a
 # glue Variable. Define the Comparison and also create the folder for saving all plots and results to be
 # saved as per the comparison
+ComparisonList <- c(
+  "d7_GFVsd7_SPF", # SPF is the Numerator.
+  "adult_GFVsd7_GF", # d7 is the Numerator
+  "d7_WTVsd7_spF", # SPF is the Numerator
+  "adult_WTVsd7_WT", # d7 WT is the Numerator
+  "adult_GFVsd7_GF", # d7 GF is the Numerator
+  "adult_GFVsadult_WT", # adult WT is the numerator
+  "adult_GFVsadult_SPF", # adult SPF is the numerator
+  "adult_spfVsd7_spf" # d7 SPF is the Numerator
+)
+for (i in ComparisonList) {
+  print(i)
+  Comparison <- i
+  print(Comparison)
 
-Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
+# Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
 # Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
 # Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
@@ -64,8 +79,14 @@ Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator
 
 # Determine the Comparison Condition: Comment one of them out based on the comparison you are trying to run.
-
-Comparison_Condition <- "MouseType"
+if (Comparison %in% c("adult_spfVsd7_spf", "adult_WTVsd7_WT", "adult_GFVsd7_GF")) {
+  Comparison_Condition <- "condition"
+  print(Comparison_Condition)
+} else {
+  Comparison_Condition <- "MouseType"
+  print(Comparison_Condition)
+}
+# Comparison_Condition <- "MouseType"
 # Comparison_Condition <- "condition"
 
 # Folder Paths for Different Comparisons
@@ -90,13 +111,13 @@ rownames(countsmatrix) <- countsmatrix[, 2] # converting first column of gene ID
 # GenderGenes Filtering
 gendergenes_biomart <- data.frame(read.csv(file = file.path(here(), "/20221017_y-chromosomal genes_biomart.txt")))
 ## Remove rows with only empty cells
-gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", MARGIN = 1, all),] %>%
+gendergenes_biomart <- gendergenes_biomart[!apply(gendergenes_biomart == " ", MARGIN = 1, all), ] %>%
   drop_na() %>% # drop Na rows so that it reduces size of matrix. Na values arise due to 1:many mapping of ensembl.
   rename(EnsemblID = 1) # change the name of 2nd column to genename
 
 # We can use the anti_join() function to return all rows in the first data frame that do not have a matching row
 # in the second data frame
-countsmatrix <- anti_join(countsmatrix, gendergenes_biomart, by = 'EnsemblID')## Removal of Gender Genes from ENSEMBL ID column itself
+countsmatrix <- anti_join(countsmatrix, gendergenes_biomart, by = "EnsemblID") ## Removal of Gender Genes from ENSEMBL ID column itself
 nrow(countsmatrix)
 # Filter out the other 5 known gender genes as well from other RNAseq Projects.
 countsmatrix <-
@@ -153,8 +174,7 @@ colnames(countsmatrix) <- coldata$Sample_Name
 # # *****************Now to the comparisons*************
 ### Reduce larger Matrix to smaller one - based on comparison
 paste0(Comparison)
-switch(
-  Comparison,
+switch(Comparison,
   "adult_spfVsd7_spf" = {
     (coldata <- coldata[c(9, 10, 11, 18, 19, 20), ])
   },
@@ -162,23 +182,22 @@ switch(
     (coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])
   },
   "d7_GFVsd7_SPF" = {
-    (coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11),])
+    (coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ])
   },
   "adult_GFVsd7_GF" = {
-    (coldata <- coldata[c(5, 6, 7, 8, 15, 16, 17),])
+    (coldata <- coldata[c(5, 6, 7, 8, 15, 16, 17), ])
   },
   "adult_WTVsd7_WT" = {
-    (coldata <- coldata[c(1, 2, 3, 12, 13, 14),])
+    (coldata <- coldata[c(1, 2, 3, 12, 13, 14), ])
   },
   "adult_GFVsadult_WT" = {
-    (coldata <- coldata[c(12, 13, 14, 15, 16, 17),])
+    (coldata <- coldata[c(12, 13, 14, 15, 16, 17), ])
   },
   "adult_GFVsadult_SPF" = {
-    (coldata <- coldata[c(15, 16, 17, 18, 19, 20),])
+    (coldata <- coldata[c(15, 16, 17, 18, 19, 20), ])
   }
 )
-switch(
-  Comparison,
+switch(Comparison,
   "adult_spfVsd7_spf" = {
     (countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])
   },
@@ -201,7 +220,7 @@ switch(
     (countsmatrix <- countsmatrix[, c(15, 16, 17, 18, 19, 20)])
   }
 )
-# **********************FUNCTIONS**************************************************************************************
+# **********************FUNCTIONS**********************************************
 # Function to save generic plots
 saveplot <- function(plot, plotname) {
   # Function to save the plots
@@ -216,9 +235,10 @@ saveplot <- function(plot, plotname) {
     height = 10,
     units = "in"
   )
-  #dev.off()
-  while (!is.null(dev.list()))
+  # dev.off()
+  while (!is.null(dev.list())) {
     dev.off()
+  }
 }
 # **********************DESeq Analysis********************************
 # Sanity Check for DDS
@@ -230,14 +250,18 @@ dim(countsmatrix)
 if (Comparison_Condition == "MouseType") {
   ## Creating the DESeq Data set Object
   dds <-
-    DESeqDataSetFromMatrix(countData = countsmatrix,
-                           colData = coldata,
-                           design = ~ MouseType)
+    DESeqDataSetFromMatrix(
+      countData = countsmatrix,
+      colData = coldata,
+      design = ~MouseType
+    )
 } else {
   dds <-
-    DESeqDataSetFromMatrix(countData = countsmatrix,
-                           colData = coldata,
-                           design = ~ condition)
+    DESeqDataSetFromMatrix(
+      countData = countsmatrix,
+      colData = coldata,
+      design = ~condition
+    )
 }
 
 # Further filtering of low count genes
@@ -284,17 +308,17 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 color_values <-
   c(
     "black",
-           "black",
-           "red",
-           "red",
-           "red",
-           "red",
-           "red",
-           "red",
-           "red",
-           "red",
-           "black",
-           "black"
+    "black",
+    "red",
+    "red",
+    "red",
+    "red",
+    "red",
+    "red",
+    "red",
+    "red",
+    "black",
+    "black"
   )
 # The basic set of common aesthetic settings for PCA plots,
 theme.my.own <- list(
@@ -326,7 +350,7 @@ theme.my.own <- list(
     legend.position = "bottom",
     aspect.ratio = 1
   ),
-  #geom_text(size = 4, hjust = 0, vjust = 0),
+  # geom_text(size = 4, hjust = 0, vjust = 0),
   geom_text_repel(size = 4, min.segment.length = 0.1)
 )
 # PCA Plot Calculation
@@ -347,7 +371,7 @@ plotPCA_local <-
     pca <- prcomp(t(assay(object)[select, ]))
     # summary(pca)
     # the contribution to the total variance for each component
-    percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+    percentVar <- pca$sdev^2 / sum(pca$sdev^2)
     if (!all(intgroup %in% names(colData(object)))) {
       stop("the argument 'intgroup' should specify columns of colData(dds)")
     }
@@ -361,8 +385,10 @@ plotPCA_local <-
     }
     # assembly the data for the plot
     d <-
-      cbind(pca$x[, seq_len(min(nPC, ncol(pca$x))), drop = FALSE],
-            data.frame(group = group, intgroup.df, name = colnames(object)))
+      cbind(
+        pca$x[, seq_len(min(nPC, ncol(pca$x))), drop = FALSE],
+        data.frame(group = group, intgroup.df, name = colnames(object))
+      )
     if (returnData) {
       attr(d, "percentVar") <- percentVar[1:nPC]
       # l <- list(pca,d)
@@ -379,16 +405,18 @@ percentvar_calculation <- function(pcaData_variable) {
 }
 
 switch(Comparison_Condition,
-       "condition" = {
-         pcaData <- plotPCA_local(vsd,
-                                  intgroup = c("condition", "Sample_Name"),
-                                  returnData = T)
-       }, #
-       "MouseType" = {
-         pcaData <- plotPCA_local(vsd,
-                                  intgroup = c("MouseType", "Sample_Name"),
-                                  returnData = T)
-       },
+  "condition" = {
+    pcaData <- plotPCA_local(vsd,
+      intgroup = c("condition", "Sample_Name"),
+      returnData = T
+    )
+  }, #
+  "MouseType" = {
+    pcaData <- plotPCA_local(vsd,
+      intgroup = c("MouseType", "Sample_Name"),
+      returnData = T
+    )
+  },
 )
 print(pcaData)
 percentVar <- percentvar_calculation(pcaData)
@@ -409,7 +437,7 @@ print(percentVar)
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
     ggtitle(glue("PCA: {Comparison}")) +
-    #scale_colour_manual(values = color_values) +
+    # scale_colour_manual(values = color_values) +
     theme.my.own
 )
 saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
@@ -477,21 +505,21 @@ saveplot(Genes_Biplot, plotname = "Genes_Biplot")
 saveplot(Genes_contributions_Biplot, plotname = "Genes_contributions_Biplot")
 # Contributions of variables to PC2
 (top25_genes_dim2 <-
-    fviz_contrib(
-      res.pca,
-      choice = "var",
-      axes = 2,
-      top = 25
-    ))
+  fviz_contrib(
+    res.pca,
+    choice = "var",
+    axes = 2,
+    top = 25
+  ))
 saveplot(top25_genes_dim2, plotname = "top25_genes_dim2")
 # # Contributions of variables to PC1
 (top25_genes_dim1 <-
-    fviz_contrib(
-      res.pca,
-      choice = "var",
-      axes = 1,
-      top = 25
-    ))
+  fviz_contrib(
+    res.pca,
+    choice = "var",
+    axes = 1,
+    top = 25
+  ))
 saveplot(top25_genes_dim1, plotname = "top25_genes_dim1")
 
 # ********************************DGE Results********************************
@@ -501,29 +529,28 @@ dds <-
 
 ### Building the results table
 ### 2nd term will be the Nr.(Infected)
-switch(
-  Comparison,
+switch(Comparison,
   "adult_spfVsd7_spf" = {
     res <-
       results(dds, contrast = c("condition", "d7", "adult"))
   },
   # adult_spfVsd7_spf
-  "adult_GFVsd7_GF"   = {
+  "adult_GFVsd7_GF" = {
     res <-
       results(dds, contrast = c("condition", "d7", "adult"))
   },
-  #adult_GFVsd7_GF
-  "adult_WTVsd7_WT"   = {
+  # adult_GFVsd7_GF
+  "adult_WTVsd7_WT" = {
     res <-
       results(dds, contrast = c("condition", "d7", "adult"))
   },
-  #adult_WTVsd7_WT
-  "d7_WTVsd7_spF"     = {
+  # adult_WTVsd7_WT
+  "d7_WTVsd7_spF" = {
     res <-
       results(dds, contrast = c("MouseType", "SPF", "WLD"))
   },
   # d7_WTVsd7_spF
-  "d7_GFVsd7_SPF"     = {
+  "d7_GFVsd7_SPF" = {
     res <-
       results(dds, contrast = c("MouseType", "SPF", "GF"))
   },
@@ -539,7 +566,7 @@ switch(
   },
   # adult_GFVsadult_SPF
 )
-write.csv(as.data.frame(res), file = file.path(Comparison_path , glue("DGE_Results_{Comparison}.csv")))
+write.csv(as.data.frame(res), file = file.path(Comparison_path, glue("DGE_Results_{Comparison}.csv")))
 
 ### Histogram of p-values
 hist(
@@ -583,10 +610,10 @@ resdf$diffexpressed <-
   "NS"
 # if log2Foldchange > 1.0 and pvalue < 0.05, set as "UP"
 resdf$diffexpressed[resdf$log2FoldChange > 1.0 &
-                      resdf$pvalue < 0.05] <- "UP"
+  resdf$pvalue < 0.05] <- "UP"
 # if log2Foldchange < -1.0 and pvalue < 0.05, set as "DOWN"
 resdf$diffexpressed[resdf$log2FoldChange < -1.0 &
-                      resdf$pvalue < 0.05] <- "DOWN"
+  resdf$pvalue < 0.05] <- "DOWN"
 # Create a new column "delabel" to de, that will contain the name of genes differentially expressed (NA in case they are not)
 # resdf$delabel <- NA
 # resdf$delabel[resdf$diffexpressed != "NS"] <- resdf$symbol[resdf$diffexpressed != "NS"]
@@ -595,7 +622,7 @@ resdf$diffexpressed[resdf$log2FoldChange < -1.0 &
 significantgenes_df <-
   resdf[(abs(resdf$log2FoldChange) > 1) & (resdf$pvalue < 0.05), ]
 write.csv(significantgenes_df, file = file.path(
-  Comparison_path ,
+  Comparison_path,
   glue("SignificantDEgenes_{Comparison}.csv")
 ))
 
@@ -625,27 +652,33 @@ volcano1 <-
     widthConnectors = 0.75,
     max.overlaps = 20,
     axisLabSize = 22,
-    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
-             max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-    ylim = c(0, max(-log10(resdf$pvalue)) + 5)
+    xlim = c(
+      min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
+      max(resdf$log2FoldChange, na.rm = TRUE) + 0.5
+    ),
+    ylim = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5)
   )
 
-  volcano1 <- volcano1 +
-    scale_y_continuous(
-      limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
-      breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5 , 5),
-      sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
-    ) +
-    scale_x_continuous(
-      limits = c(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
-                 ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)),
-      breaks = seq(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
-                   ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-                   2),
-      sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
-    )
-  # xlab(expression(DownRegulated %<->% UpRegulated)))
-  saveplot(volcano1, plotname = "Volcano_pvalue")
+volcano1 <- volcano1 +
+  scale_y_continuous(
+    limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
+    breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5, 5),
+    sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+  ) +
+  scale_x_continuous(
+    limits = c(
+      ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+      ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)
+    ),
+    breaks = seq(
+      ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+      ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+      2
+    ),
+    sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
+  )
+# xlab(expression(DownRegulated %<->% UpRegulated)))
+saveplot(volcano1, plotname = "Volcano_pvalue")
 
 # Volcano Plot with padj.
 volcano2 <-
@@ -673,32 +706,38 @@ volcano2 <-
     widthConnectors = 0.75,
     max.overlaps = 20,
     axisLabSize = 22,
-    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
-             max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-    ylim = c(0, max(-log10(resdf$pvalue)) + 5)
+    xlim = c(
+      min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
+      max(resdf$log2FoldChange, na.rm = TRUE) + 0.5
+    ),
+    ylim = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5)
   )
 volcano2 <- volcano2 +
   scale_y_continuous(
     limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
-    breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5 , 5),
+    breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5, 5),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   ) +
   scale_x_continuous(
-    limits = c(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
-               ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)),
-    breaks = seq(ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
-                 ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-                 2),
+    limits = c(
+      ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+      ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5)
+    ),
+    breaks = seq(
+      ceiling(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5),
+      ceiling(max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+      2
+    ),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   )
-#xlab(expression(DownRegulated %<->% UpRegulated))
+# xlab(expression(DownRegulated %<->% UpRegulated))
 saveplot(volcano2, plotname = "Volcano_padj")
 
 ### Number of Genes from different strains that are contributing to UP/DOWN regulation.
 significantgenes_df_UP <-
-  significantgenes_df[(significantgenes_df$log2FoldChange) > 1, ]# UP Regulation Table
+  significantgenes_df[(significantgenes_df$log2FoldChange) > 1, ] # UP Regulation Table
 significantgenes_df_DOWN <-
-  significantgenes_df[(significantgenes_df$log2FoldChange) < -1, ]# DOWN Regulation Table
+  significantgenes_df[(significantgenes_df$log2FoldChange) < -1, ] # DOWN Regulation Table
 nrow(significantgenes_df_UP)
 nrow(significantgenes_df_DOWN)
 write.csv(significantgenes_df_UP, file.path(
@@ -719,7 +758,7 @@ sigs2df <-
 mat <-
   counts(dds, normalized = TRUE)[(significantgenes_df$symbol) %in% rownames(counts(dds)), ]
 mat.zs <- t(apply(mat, 1, scale)) # Calculating the zscore for each row
-colnames(mat.zs) <- coldata$Sample_Name# need to provide correct sample names for each of the columns
+colnames(mat.zs) <- coldata$Sample_Name # need to provide correct sample names for each of the columns
 
 write.csv(mat.zs, file.path(Comparison_path, glue("Allgenes_zscorematrix_{Comparison}.csv")))
 
@@ -734,7 +773,7 @@ write.csv(mat.zs, file.path(Comparison_path, glue("Allgenes_zscorematrix_{Compar
     use_raster = TRUE,
     raster_quality = 10,
     column_names_gp = grid::gpar(fontsize = 12),
-    #row_labels = sigs2df[rownames(mat2.zs), ]$symbol
+    # row_labels = sigs2df[rownames(mat2.zs), ]$symbol
     heatmap_legend_param = list(
       legend_direction = "horizontal",
       legend_width = unit(x = 5, units = "cm")
@@ -759,9 +798,10 @@ jpeg(
   symbolfamily = "default"
 )
 draw(AllGenes_Heatmap, heatmap_legend_side = "bottom")
-#dev.off()
-while (!is.null(dev.list()))
+# dev.off()
+while (!is.null(dev.list())) {
   dev.off()
+}
 # LongHeatMap_Allgenes <- Heatmap(mat.zs,
 #                                 cluster_columns = TRUE,
 #                                 cluster_rows = TRUE,
@@ -782,7 +822,7 @@ while (!is.null(dev.list()))
 ### Heatmap with tighter constraints (all genes together!)
 sigs1df <-
   resdf[(resdf$baseMean > 100) &
-          (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
+    (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <-
   counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
 mat1.zs <-
@@ -822,8 +862,9 @@ jpeg(
   symbolfamily = "default"
 )
 draw(Tightconstraints_Heatmap, heatmap_legend_side = "bottom")
-while (!is.null(dev.list()))
-  dev.off() #dev.off()
+while (!is.null(dev.list())) {
+  dev.off()
+} # dev.off()
 
 # ********************************Functional Analysis using Cluster Profiler********************************
 ## GO over-representation analysis
@@ -842,7 +883,7 @@ GO_UPRegResults <-
     readable = TRUE
   )
 GO_UPRegResults_df <- as.data.frame(GO_UPRegResults)
-write.csv(GO_UPRegResults_df, file.path(Comparison_path , glue("GO_UPRegResults_df_{Comparison}.csv")))
+write.csv(GO_UPRegResults_df, file.path(Comparison_path, glue("GO_UPRegResults_df_{Comparison}.csv")))
 
 ## T-Cell Based GO Terms
 # create a TCell based GO term Data frame by extracting the rows that at least partially matches to the word TCELL
@@ -860,8 +901,8 @@ write.csv(GO_UPRegResults_df, file.path(Comparison_path , glue("GO_UPRegResults_
 
 GO_UpRegdf_TCell <- GO_UPRegResults_df %>% filter(grepl("T cell | lymphocyte | leukocyte | mononuclear cell |cell activation | immune response", Description))
 
-#Warning: I wont be able to detect GO terms that do not have the word TCell_terms mentioned in their description.
-write.csv(GO_UpRegdf_TCell, file.path(Comparison_path , glue("GO_TCELL_{Comparison}.csv")))
+# Warning: I wont be able to detect GO terms that do not have the word TCell_terms mentioned in their description.
+write.csv(GO_UpRegdf_TCell, file.path(Comparison_path, glue("GO_TCELL_{Comparison}.csv")))
 
 # Functional Analysis Plots
 if (nrow(GO_UPRegResults_df > 0)) {
@@ -903,7 +944,7 @@ if (nrow(GO_UPRegResults_df > 0)) {
     plot(treeplot(edox2))
   saveplot(plot = GO_UPReg_enrichtreeplot, plotname = "GO_UPReg_enrichtreeplot")
   (GO_UPReg_emapplot <-
-      emapplot(edox2, showCategory = 25, repel = TRUE))
+    emapplot(edox2, showCategory = 25, repel = TRUE))
   saveplot(plot = GO_UPReg_emapplot, plotname = "GO_UPReg_emapplot")
 } else {
   print("There were 0 rows in ORA analysis results!")
@@ -925,7 +966,7 @@ GO_DOWNRegResults <-
 GO_DOWNRegResults_df <-
   as.data.frame(GO_DOWNRegResults)
 write.csv(GO_DOWNRegResults_df, file.path(
-  Comparison_path ,
+  Comparison_path,
   glue("GO_DOWNRegResults_df_{Comparison}.csv")
 ))
 
@@ -971,7 +1012,8 @@ if (nrow(GO_DOWNRegResults_df > 0)) {
   GO_DOWNReg_emapplot <-
     emapplot(edox2, showCategory = 25, repel = TRUE)
   saveplot(plot = GO_DOWNReg_emapplot, plotname = "GO_DOWNReg_emapplot")
-
 } else {
   print("There were 0 rows in ORA analysis results!")
 }
+
+} # ending the for loop for ComparisonList
