@@ -580,8 +580,11 @@ hist(
 # Map Gene symbols to Ensembl and Entrez ID
 resdf <-
   tibble::rownames_to_column(as.data.frame(res), var = "symbol")
-gn <-
-  resdf$symbol
+
+resdf %>%
+  mutate(logpvalue = -log10(resdf$pvalue)) %>%
+  mutate(logpadj = -log10(resdf$padj))
+gn <- resdf$symbol
 # Mapping the Symbol to ENTREZ ID
 entrez <-
   mapIds(
@@ -628,7 +631,11 @@ write.csv(significantgenes_df, file = file.path(
 ))
 
 ###############################Cleaning up for volcano plots - Create df based on -log10
+resdf <- resdf %>%
+  mutate(logpvalue = -log10(resdf$pvalue)) %>%
+  mutate(logpadj = -log10(resdf$padj))
 
+resdf[c('logpvalue', 'logpadj')][sapply(resdf[c(c('logpvalue', 'logpadj'))], is.infinite)] <- NA
 
 ## ********************************Volcano Plots based on Enhanced Volcano************************
 # Volcano Plot with pvalue
@@ -658,25 +665,17 @@ volcano1 <-
     axisLabSize = 22,
     xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
              max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-    ylim = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
+    ylim = c(0, max(resdf$logpvalue, na.rm = TRUE) + 5),
     raster = TRUE,
     directionConnectors = "both",
     arrowheads = TRUE,
     min.segment.length = 0.05
   )
 
-
 volcano1 <- volcano1 +
   scale_y_continuous(
-    limits = c(0, ifelse(is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE)),
-                         resdf$pvalue[is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE))] <- NA,
-                         max(-log10(resdf$pvalue), na.rm = TRUE) + 5)
-               ),
-    breaks = seq(0,
-                 ifelse(is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE)),
-                        resdf$pvalue[is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE))] <- NA,
-                        max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
-                 10),
+    limits = c(0, max(resdf$logpvalue, na.rm = TRUE) + 5),
+    breaks = seq(0, max(resdf$logpvalue, na.rm = TRUE) + 5, 10),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   ) +
   scale_x_continuous(
