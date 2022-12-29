@@ -661,15 +661,15 @@ volcano1 <-
     legendIconSize = 4.0,
     drawConnectors = T,
     widthConnectors = 0.5,
-    max.overlaps = 25,
-    axisLabSize = 22,
+    max.overlaps = 12,
+    axisLabSize = 18,
     xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
              max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
     ylim = c(0, max(resdf$logpvalue, na.rm = TRUE) + 5),
     raster = TRUE,
     directionConnectors = "both",
     arrowheads = TRUE,
-    min.segment.length = 0.05
+    min.segment.length = 0.3
   )
 
 volcano1 <- volcano1 +
@@ -717,29 +717,20 @@ volcano2 <-
     legendIconSize = 4.0,
     drawConnectors = T,
     widthConnectors = 0.75,
-    max.overlaps = 20,
-    axisLabSize = 22,
+    max.overlaps = 12,
+    axisLabSize = 18,
     xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
              max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
-    ylim = c(0, max(-log10(resdf$padj), na.rm = TRUE) + 5),
+    ylim = c(0, max(resdf$padj, na.rm = TRUE) + 5),
     raster = TRUE,
     directionConnectors = "both",
     arrowheads = TRUE,
-    min.segment.length = 0.05
+    min.segment.length = 0.25
   )
 volcano2 <- volcano2 +
   scale_y_continuous(
-    limits = c(0,
-               ifelse(is.infinite(max(-log10(resdf$padj), na.rm = TRUE)),
-                      resdf$padj[is.infinite(max(-log10(resdf$padj), na.rm = TRUE))] <- NA,
-                      max(-log10(resdf$padj), na.rm = TRUE) + 5
-               )
-               ),
-    breaks = seq(0,
-                 ifelse(is.infinite(max(-log10(resdf$padj), na.rm = TRUE)),
-                        resdf$padj[is.infinite(max(-log10(resdf$padj), na.rm = TRUE))] <- NA,
-                        max(-log10(resdf$padj), na.rm = TRUE) + 5),
-                 10),
+    limits = c(0, max(resdf$logpadj, na.rm = TRUE) + 5),
+    breaks = seq(0, max(resdf$logpadj, na.rm = TRUE) + 5, 10),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   ) +
   scale_x_continuous(
