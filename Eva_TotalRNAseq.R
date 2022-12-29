@@ -57,13 +57,15 @@ here()
 # saved as per the comparison
 ComparisonList <- c(
   "d7_GFVsd7_SPF", # SPF is the Numerator.
+  "d7_GFVsd7_WT", # d7 WT is the Numerator.
   "adult_GFVsd7_GF", # d7 is the Numerator
   "d7_WTVsd7_spF", # SPF is the Numerator
   "adult_WTVsd7_WT", # d7 WT is the Numerator
   "adult_GFVsd7_GF", # d7 GF is the Numerator
   "adult_GFVsadult_WT", # adult WT is the numerator
   "adult_GFVsadult_SPF", # adult SPF is the numerator
-  "adult_spfVsd7_spf" # d7 SPF is the Numerator
+  "adult_spfVsd7_spf", # d7 SPF is the Numerator
+  "adult_WTVsadult_SPF" # adult SPF is the numerator
 )
 for (i in ComparisonList) {
   print(i)
@@ -78,6 +80,7 @@ for (i in ComparisonList) {
 # Comparison <- "adult_GFVsadult_WT" # adult WT is the numerator
 # Comparison <- "adult_GFVsadult_SPF" # adult SPF is the numerator
 # Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator
+# "d7_GFVsd7_WT" WT is the Numerator
 
 # Determine the Comparison Condition: Comment one of them out based on the comparison you are trying to run.
 if (Comparison %in% c("adult_spfVsd7_spf", "adult_WTVsd7_WT", "adult_GFVsd7_GF")) {
@@ -182,6 +185,9 @@ switch(Comparison,
   "d7_WTVsd7_spF" = {
     (coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])
   },
+  "d7_GFVsd7_WT"  = {
+    (coldata <- coldata[c(1, 2, 3, 5, 6, 7, 8), ])
+  },
   "d7_GFVsd7_SPF" = {
     (coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ])
   },
@@ -196,6 +202,9 @@ switch(Comparison,
   },
   "adult_GFVsadult_SPF" = {
     (coldata <- coldata[c(15, 16, 17, 18, 19, 20), ])
+  },
+  "adult_WTVsadult_SPF" = {
+    (coldata <- coldata[c(12, 13, 14, 18, 19, 20), ])
   }
 )
 switch(Comparison,
@@ -204,6 +213,9 @@ switch(Comparison,
   },
   "d7_WTVsd7_spF" = {
     (countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])
+  },
+  "d7_GFVsd7_WT" = {
+    (countsmatrix <- countsmatrix[, c(1, 2, 3, 5, 6, 7, 8)])
   },
   "d7_GFVsd7_SPF" = {
     (countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)])
@@ -219,6 +231,9 @@ switch(Comparison,
   },
   "adult_GFVsadult_SPF" = {
     (countsmatrix <- countsmatrix[, c(15, 16, 17, 18, 19, 20)])
+  },
+  "adult_WTVsadult_SPF"= {
+    (countsmatrix <- countsmatrix[, c(12, 13, 14, 18, 19, 20)])
   }
 )
 # **********************FUNCTIONS**********************************************
@@ -457,7 +472,7 @@ saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
     xlab(paste0("PC3: ", percentVar[3], "% variance")) +
     ylab(paste0("PC4: ", percentVar[4], "% variance")) +
     ggtitle(glue("PCA: {Comparison}")) +
-    scale_colour_manual(values = color_values) +
+    # scale_colour_manual(values = color_values) +
     theme.my.own
 )
 saveplot(PCAplot_pc34, plotname = "PCA_PC3vsPC4")
@@ -558,6 +573,10 @@ switch(Comparison,
       results(dds, contrast = c("MouseType", "SPF", "GF"))
   },
   # d7_GFVsd7_SPF
+  "d7_GFVsd7_WT"  = {
+    res <-
+      results(dds, contrast = c("MouseType", "WLD", "GF"))
+  }, # d7_GFVsd7_WT
   "adult_GFVsadult_WT" = {
     res <-
       results(dds, contrast = c("MouseType", "WLD", "GF"))
@@ -568,6 +587,10 @@ switch(Comparison,
       results(dds, contrast = c("MouseType", "SPF", "GF"))
   },
   # adult_GFVsadult_SPF
+  "adult_WTVsadult_SPF" = {
+    res <-
+      results(dds, contrast = c("MouseType", "SPF", "WLD"))
+  }#adult_WTVsadult_SPF
 )
 
 ### Histogram of p-values
@@ -884,7 +907,8 @@ while (!is.null(dev.list())) {
   dev.off()
 } # dev.off()
 
-# ********************************Functional Analysis using Cluster Profiler********************************
+# *************Functional Analysis using Cluster Profiler*************************
+print("***Functional Analysis using Cluster Profiler***")
 ## GO over-representation analysis
 ### GO Terms for UP Regulated Genes
 UPgene_ENS_ID <-
@@ -905,18 +929,6 @@ write.csv(GO_UPRegResults_df, file.path(Comparison_path, glue("GO_UPRegResults_d
 
 ## T-Cell Based GO Terms
 # create a TCell based GO term Data frame by extracting the rows that at least partially matches to the word TCELL
-# TCell_terms <-
-#   c(
-#     "T cell",
-#     "lymphocyte",
-#     "leukocyte",
-#     "mononuclear cell",
-#     "cell activation",
-#     "immune response"
-#   )
-# GO_UpRegdf_TCell <-
-#   GO_UPRegResults_df[str_detect(GO_UPRegResults_df$Description, pattern = TCell_terms), ]
-
 GO_UpRegdf_TCell <- GO_UPRegResults_df %>% filter(grepl("T cell | lymphocyte | leukocyte | mononuclear cell |cell activation | immune response", Description))
 
 # Warning: I wont be able to detect GO terms that do not have the word TCell_terms mentioned in their description.
