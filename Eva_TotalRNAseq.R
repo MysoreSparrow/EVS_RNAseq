@@ -34,7 +34,8 @@ Package_List <-
     "FactoMineR",
     "factoextra",
     "here",
-    "data.table"
+    "data.table",
+    "ggrastr"
   )
 not_installed <-
   Package_List[!(Package_List %in% installed.packages()[, "Package"])] # Extract not installed packages
@@ -626,7 +627,10 @@ write.csv(significantgenes_df, file = file.path(
   glue("SignificantDEgenes_{Comparison}.csv")
 ))
 
-## ********************************Volcano Plots based on Enhanced Volcano********************************
+###############################Cleaning up for volcano plots - Create df based on -log10
+
+
+## ********************************Volcano Plots based on Enhanced Volcano************************
 # Volcano Plot with pvalue
 volcano1 <-
   EnhancedVolcano(
@@ -649,20 +653,30 @@ volcano1 <-
     legendLabSize = 12,
     legendIconSize = 4.0,
     drawConnectors = T,
-    widthConnectors = 0.75,
-    max.overlaps = 20,
+    widthConnectors = 0.5,
+    max.overlaps = 25,
     axisLabSize = 22,
-    xlim = c(
-      min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
-      max(resdf$log2FoldChange, na.rm = TRUE) + 0.5
-    ),
-    ylim = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5)
+    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
+             max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+    ylim = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
+    raster = TRUE,
+    directionConnectors = "both",
+    arrowheads = TRUE,
+    min.segment.length = 0.05
   )
+
 
 volcano1 <- volcano1 +
   scale_y_continuous(
-    limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
-    breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5, 5),
+    limits = c(0, ifelse(is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE)),
+                         resdf$pvalue[is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE))] <- NA,
+                         max(-log10(resdf$pvalue), na.rm = TRUE) + 5)
+               ),
+    breaks = seq(0,
+                 ifelse(is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE)),
+                        resdf$pvalue[is.infinite(max(-log10(resdf$pvalue), na.rm = TRUE))] <- NA,
+                        max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
+                 10),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   ) +
   scale_x_continuous(
@@ -706,16 +720,27 @@ volcano2 <-
     widthConnectors = 0.75,
     max.overlaps = 20,
     axisLabSize = 22,
-    xlim = c(
-      min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
-      max(resdf$log2FoldChange, na.rm = TRUE) + 0.5
-    ),
-    ylim = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5)
+    xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
+             max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
+    ylim = c(0, max(-log10(resdf$padj), na.rm = TRUE) + 5),
+    raster = TRUE,
+    directionConnectors = "both",
+    arrowheads = TRUE,
+    min.segment.length = 0.05
   )
 volcano2 <- volcano2 +
   scale_y_continuous(
-    limits = c(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5),
-    breaks = seq(0, max(-log10(resdf$pvalue), na.rm = TRUE) + 5, 5),
+    limits = c(0,
+               ifelse(is.infinite(max(-log10(resdf$padj), na.rm = TRUE)),
+                      resdf$padj[is.infinite(max(-log10(resdf$padj), na.rm = TRUE))] <- NA,
+                      max(-log10(resdf$padj), na.rm = TRUE) + 5
+               )
+               ),
+    breaks = seq(0,
+                 ifelse(is.infinite(max(-log10(resdf$padj), na.rm = TRUE)),
+                        resdf$padj[is.infinite(max(-log10(resdf$padj), na.rm = TRUE))] <- NA,
+                        max(-log10(resdf$padj), na.rm = TRUE) + 5),
+                 10),
     sec.axis = sec_axis(~ . * 1, labels = NULL, breaks = NULL)
   ) +
   scale_x_continuous(
