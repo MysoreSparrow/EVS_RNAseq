@@ -492,11 +492,13 @@ saveplot(Genes_Biplot, plotname = "Genes_Biplot")
       col.var = "contrib",
       repel = TRUE,
       gradient.cols = c(
-        "Gray",
+        "gray",
         "blue",
         "pink",
+        "magenta",
         "yellow",
         "orange",
+        "brown",
         "green",
         "red",
         "black"
@@ -567,13 +569,12 @@ switch(Comparison,
   },
   # adult_GFVsadult_SPF
 )
-write.csv(as.data.frame(res), file = file.path(Comparison_path, glue("DGE_Results_{Comparison}.csv")))
 
 ### Histogram of p-values
 hist(
   res$pvalue,
   breaks = 100,
-  col = "grey50",
+  col = "gray",
   border = "blue"
 )
 
@@ -630,13 +631,15 @@ write.csv(significantgenes_df, file = file.path(
   glue("SignificantDEgenes_{Comparison}.csv")
 ))
 
-###############################Cleaning up for volcano plots - Create df based on -log10
+### Cleaning up for volcano plots - Create df based on -log10
 resdf <- resdf %>%
   mutate(logpvalue = -log10(resdf$pvalue)) %>%
   mutate(logpadj = -log10(resdf$padj))
-
+# Check for Values that have Inf when -log10 is applied for pvalue and padj and replace it with NA
 resdf[c('logpvalue', 'logpadj')][sapply(resdf[c(c('logpvalue', 'logpadj'))], is.infinite)] <- NA
 
+# Save the respective results data frame
+write.csv(resdf, file = file.path(Comparison_path, glue("DGE_Results_{Comparison}.csv")))
 ## ********************************Volcano Plots based on Enhanced Volcano************************
 # Volcano Plot with pvalue
 volcano1 <-
@@ -836,7 +839,7 @@ while (!is.null(dev.list())) {
 # dev.off()
 ### Heatmap with tighter constraints (all genes together!)
 sigs1df <-
-  resdf[(resdf$baseMean > 100) &
+  resdf[(resdf$baseMean > 500) &
     (abs(resdf$log2FoldChange) > 2) & (resdf$pvalue < 0.05), ]
 mat1 <-
   counts(dds, normalized = TRUE)[(sigs1df$symbol), ]
