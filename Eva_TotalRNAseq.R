@@ -67,14 +67,14 @@ ComparisonList <- c(
   "adult_spfVsd7_spf", # d7 SPF is the Numerator
   "adult_WTVsadult_SPF" # adult SPF is the numerator
 )
-for (i in ComparisonList) {
-  print(i)
-  Comparison <- i
-  print(Comparison)
+# for (i in ComparisonList) {
+#   print(i)
+#   Comparison <- i
+#   print(Comparison)
 
 # Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
-# Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
+Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
 # Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
 # Comparison <- "adult_GFVsd7_GF" # d7 GF is the Numerator
 # Comparison <- "adult_GFVsadult_WT" # adult WT is the numerator
@@ -179,62 +179,26 @@ colnames(countsmatrix) <- coldata$Sample_Name
 ### Reduce larger Matrix to smaller one - based on comparison
 paste0(Comparison)
 switch(Comparison,
-  "adult_spfVsd7_spf" = {
-    (coldata <- coldata[c(9, 10, 11, 18, 19, 20), ])
-  },
-  "d7_WTVsd7_spF" = {
-    (coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])
-  },
-  "d7_GFVsd7_WT"  = {
-    (coldata <- coldata[c(1, 2, 3, 5, 6, 7, 8), ])
-  },
-  "d7_GFVsd7_SPF" = {
-    (coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ])
-  },
-  "adult_GFVsd7_GF" = {
-    (coldata <- coldata[c(5, 6, 7, 8, 15, 16, 17), ])
-  },
-  "adult_WTVsd7_WT" = {
-    (coldata <- coldata[c(1, 2, 3, 12, 13, 14), ])
-  },
-  "adult_GFVsadult_WT" = {
-    (coldata <- coldata[c(12, 13, 14, 15, 16, 17), ])
-  },
-  "adult_GFVsadult_SPF" = {
-    (coldata <- coldata[c(15, 16, 17, 18, 19, 20), ])
-  },
-  "adult_WTVsadult_SPF" = {
-    (coldata <- coldata[c(12, 13, 14, 18, 19, 20), ])
-  }
+  "adult_spfVsd7_spf" = {(coldata <- coldata[c(9, 10, 11, 18, 19, 20), ])},
+  "d7_WTVsd7_spF" = {(coldata <- coldata[c(1, 2, 3, 9, 10, 11), ])},
+  "d7_GFVsd7_WT"  = {(coldata <- coldata[c(1, 2, 3, 5, 6, 7, 8), ])},
+  "d7_GFVsd7_SPF" = {(coldata <- coldata[c(5, 6, 7, 8, 9, 10, 11), ])},
+  "adult_GFVsd7_GF" = {(coldata <- coldata[c(5, 6, 7, 8, 15, 16, 17), ])},
+  "adult_WTVsd7_WT" = {(coldata <- coldata[c(1, 2, 3, 12, 13, 14), ])},
+  "adult_GFVsadult_WT" = {(coldata <- coldata[c(12, 13, 14, 15, 16, 17), ])},
+  "adult_GFVsadult_SPF" = {(coldata <- coldata[c(15, 16, 17, 18, 19, 20), ])},
+  "adult_WTVsadult_SPF" = {(coldata <- coldata[c(12, 13, 14, 18, 19, 20), ])}
 )
 switch(Comparison,
-  "adult_spfVsd7_spf" = {
-    (countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])
-  },
-  "d7_WTVsd7_spF" = {
-    (countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])
-  },
-  "d7_GFVsd7_WT" = {
-    (countsmatrix <- countsmatrix[, c(1, 2, 3, 5, 6, 7, 8)])
-  },
-  "d7_GFVsd7_SPF" = {
-    (countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)])
-  },
-  "adult_GFVsd7_GF" = {
-    (countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 15, 16, 17)])
-  },
-  "adult_WTVsd7_WT" = {
-    (countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])
-  },
-  "adult_GFVsadult_WT" = {
-    (countsmatrix <- countsmatrix[, c(12, 13, 14, 15, 16, 17)])
-  },
-  "adult_GFVsadult_SPF" = {
-    (countsmatrix <- countsmatrix[, c(15, 16, 17, 18, 19, 20)])
-  },
-  "adult_WTVsadult_SPF"= {
-    (countsmatrix <- countsmatrix[, c(12, 13, 14, 18, 19, 20)])
-  }
+  "adult_spfVsd7_spf" = {(countsmatrix <- countsmatrix[, c(9, 10, 11, 18, 19, 20)])},
+  "d7_WTVsd7_spF" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 9, 10, 11)])},
+  "d7_GFVsd7_WT" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 5, 6, 7, 8)])},
+  "d7_GFVsd7_SPF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 9, 10, 11)])},
+  "adult_GFVsd7_GF" = {(countsmatrix <- countsmatrix[, c(5, 6, 7, 8, 15, 16, 17)])},
+  "adult_WTVsd7_WT" = {(countsmatrix <- countsmatrix[, c(1, 2, 3, 12, 13, 14)])},
+  "adult_GFVsadult_WT" = {(countsmatrix <- countsmatrix[, c(12, 13, 14, 15, 16, 17)])},
+  "adult_GFVsadult_SPF" = {(countsmatrix <- countsmatrix[, c(15, 16, 17, 18, 19, 20)])},
+  "adult_WTVsadult_SPF" = {(countsmatrix <- countsmatrix[, c(12, 13, 14, 18, 19, 20)])}
 )
 # **********************FUNCTIONS**********************************************
 # Function to save generic plots
@@ -262,22 +226,12 @@ all(rownames(coldata) %in% colnames(countsmatrix))
 ncol(countsmatrix) == nrow(coldata)
 dim(countsmatrix)
 
-# Create DEseq Object based on design that was chosen through the Comparison_Condition that was chosen at the begininning of the script run.
+# Create DEseq Object based on design that was chosen through the Comparison_Condition that was chosen a t the begininning of the script run.
 if (Comparison_Condition == "MouseType") {
   ## Creating the DESeq Data set Object
-  dds <-
-    DESeqDataSetFromMatrix(
-      countData = countsmatrix,
-      colData = coldata,
-      design = ~MouseType
-    )
+  dds <- DESeqDataSetFromMatrix(countData = countsmatrix, colData = coldata, design = ~MouseType)
 } else {
-  dds <-
-    DESeqDataSetFromMatrix(
-      countData = countsmatrix,
-      colData = coldata,
-      design = ~condition
-    )
+  dds <-  DESeqDataSetFromMatrix(countData = countsmatrix, colData = coldata,design = ~condition)
 }
 
 # Further filtering of low count genes
@@ -304,8 +258,7 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
   )
 )
 ### Poisson Distance between Samples
-poisd <-
-  PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
+poisd <- PoissonDistance(t(counts(dds))) # raw counts or unnormalised data
 samplePoisDistMatrix <- as.matrix(poisd$dd)
 rownames(samplePoisDistMatrix) <- dds$Sample_Name
 colnames(samplePoisDistMatrix) <- dds$Sample_Name
@@ -321,21 +274,7 @@ colors <- colorRampPalette(rev(brewer.pal(9, "RdYlBu")))(255)
 )
 #  **************************PCA Plot**********************************
 # Functions for Plot aethetics and saving PCA Plots
-color_values <-
-  c(
-    "black",
-    "black",
-    "red",
-    "red",
-    "red",
-    "red",
-    "red",
-    "red",
-    "red",
-    "red",
-    "black",
-    "black"
-  )
+
 # The basic set of common aesthetic settings for PCA plots,
 theme.my.own <- list(
   theme_bw(),
@@ -446,33 +385,30 @@ print(percentVar)
       aes(
         x = PC1,
         y = PC2,
-        color = Sample_Name,
+        color = MouseType,
         label = Sample_Name
       )
     ) +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
     ggtitle(glue("PCA: {Comparison}")) +
-    # scale_colour_manual(values = color_values) +
+    scale_color_manual(values = c("GF" = "#BDA202",
+                                  "WLD" = "#077E97",
+                                  "SPF" = "#90BFF9")) +
     theme.my.own
 )
 saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
 
 # PCA Plot : PC3 vs PC4
 (
-  PCAplot_pc34 <- ggplot(
-    pcaData,
-    aes(
-      x = PC3,
-      y = PC4,
-      color = Sample_Name,
-      label = Sample_Name
-    )
-  ) +
+  PCAplot_pc34 <-
+    ggplot(pcaData, aes(x = PC3, y = PC4, color = MouseType, label = Sample_Name)) +
     xlab(paste0("PC3: ", percentVar[3], "% variance")) +
     ylab(paste0("PC4: ", percentVar[4], "% variance")) +
     ggtitle(glue("PCA: {Comparison}")) +
-    # scale_colour_manual(values = color_values) +
+    scale_color_manual(values = c("GF" = "#BDA202",
+                                  "WLD" = "#077E97",
+                                  "SPF" = "#90BFF9")) +
     theme.my.own
 )
 saveplot(PCAplot_pc34, plotname = "PCA_PC3vsPC4")
@@ -1046,4 +982,4 @@ if (nrow(GO_DOWNRegResults_df > 0)) {
   print("There were 0 rows in ORA analysis results!")
 }
 
-} # ending the for loop for ComparisonList
+# } # ending the for loop for ComparisonList
