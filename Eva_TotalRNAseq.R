@@ -67,20 +67,20 @@ ComparisonList <- c(
   "adult_spfVsd7_spf", # d7 SPF is the Numerator
   "adult_WTVsadult_SPF" # adult SPF is the numerator
 )
-# for (i in ComparisonList) {
-#   print(i)
-#   Comparison <- i
-#   print(Comparison)
+for (i in ComparisonList) {
+  print(i)
+  Comparison <- i
+  print(Comparison)
 
 # Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
-Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
+# Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
 # Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
 # Comparison <- "adult_GFVsd7_GF" # d7 GF is the Numerator
 # Comparison <- "adult_GFVsadult_WT" # adult WT is the numerator
 # Comparison <- "adult_GFVsadult_SPF" # adult SPF is the numerator
 # Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator
-# "d7_GFVsd7_WT" WT is the Numerator
+# Comparison <- "d7_GFVsd7_WT" WT is the Numerator
 
 # Determine the Comparison Condition: Comment one of them out based on the comparison you are trying to run.
 if (Comparison %in% c("adult_spfVsd7_spf", "adult_WTVsd7_WT", "adult_GFVsd7_GF")) {
@@ -211,8 +211,8 @@ saveplot <- function(plot, plotname) {
     ), sep = ""),
     plot = plot,
     dpi = 300,
-    width = 10,
-    height = 10,
+    width = 12,
+    height = 12,
     units = "in"
   )
   # dev.off()
@@ -302,7 +302,7 @@ theme.my.own <- list(
   theme(
     text = element_text(size = 15),
     axis.text = element_text(size = 15),
-    legend.position = "bottom",
+    legend.position = "right",
     aspect.ratio = 1
   ),
   # geom_text(size = 4, hjust = 0, vjust = 0),
@@ -385,7 +385,9 @@ print(percentVar)
       aes(
         x = PC1,
         y = PC2,
-        color = MouseType,
+        color = ifelse(Comparison_Condition == "MouseType",
+                                   MouseType,
+                                   Sample_Name), # MouseType,
         label = Sample_Name
       )
     ) +
@@ -402,7 +404,11 @@ saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
 # PCA Plot : PC3 vs PC4
 (
   PCAplot_pc34 <-
-    ggplot(pcaData, aes(x = PC3, y = PC4, color = MouseType, label = Sample_Name)) +
+    ggplot(pcaData, aes(x = PC3, y = PC4,
+                        color = ifelse(Comparison_Condition == "MouseType",
+                                        MouseType,
+                                        Sample_Name), # MouseType,
+                        label = Sample_Name)) +
     xlab(paste0("PC3: ", percentVar[3], "% variance")) +
     ylab(paste0("PC4: ", percentVar[4], "% variance")) +
     ggtitle(glue("PCA: {Comparison}")) +
@@ -433,7 +439,11 @@ var <- get_pca_var(res.pca)
 ## Genes + PCA Biplots
 heat.colors <- brewer.pal(6, "RdYlBu")
 ## Genes + PCA Biplots
-(Genes_Biplot <- fviz_pca_biplot(res.pca, repel = TRUE))
+(Genes_Biplot <- fviz_pca_biplot(res.pca,
+                                 repel = TRUE,
+                                 alpha.var = "contrib",
+                                 select.var = list(contrib = 50))
+  )
 saveplot(Genes_Biplot, plotname = "Genes_Biplot")
 
 (
@@ -441,6 +451,8 @@ saveplot(Genes_Biplot, plotname = "Genes_Biplot")
     fviz_pca_var(
       res.pca,
       col.var = "contrib",
+      alpha.var = "contrib",
+      select.var = list(contrib = 50),
       repel = TRUE,
       gradient.cols = c(
         "gray",
@@ -478,8 +490,7 @@ saveplot(top25_genes_dim1, plotname = "top25_genes_dim1")
 
 # ********************************DGE Results********************************
 ### Running the differential expression pipeline
-dds <-
-  DESeq(dds)
+dds <- DESeq(dds)
 
 ### Building the results table
 ### 2nd term will be the Nr.(Infected)
@@ -982,4 +993,48 @@ if (nrow(GO_DOWNRegResults_df > 0)) {
   print("There were 0 rows in ORA analysis results!")
 }
 
-# } # ending the for loop for ComparisonList
+
+# Revigo Plots
+library(rrvgo)
+rrvgo_function <- function(GOTERM_object){
+  simMatrix <- calculateSimMatrix(GOTERM_object$ID,
+                                  orgdb = "org.Mm.eg.db",
+                                  ont = "BP",
+                                  method = "Rel")
+  scores <- setNames(-log10(GOTERM_object$qvalue),
+                     GOTERM_object$ID)
+  head(scores)
+  reducedTerms <- reduceSimMatrix(simMatrix = simMatrix,
+                                  scores,
+                                  threshold = 0.7,
+                                  orgdb = "org.Mm.eg.db")
+  object_list <- list(simMatrix, reducedTerms)
+  return(object_list)
+
+}
+
+# rrvgo_object <- rrvgo_function(GO_Results_object)
+
+# Calculate similarity matrix and also perform visualisation
+Create_revigoplots <- function(GO_Results_object) {
+  rrvgo_object <- rrvgo_function(GO_Results_object)
+  heatmap_plot_object <- heatmapPlot(simMatrix = rrvgo_object[[1]],
+                                         reducedTerms = rrvgo_object[[2]],
+                                         annotateParent = TRUE,
+                                         annotationLabel = "parentTerm",
+                                         fontsize = 6)
+  scatterplot_object <- scatterPlot(rrvgo_object[[1]], rrvgo_object[[2]])
+
+  return(list(heatmap_plot_object, scatterplot_object))
+}
+
+# Create Revigo plots with Up Regulated GO Term Results object and save respective scatter plots and heat plots for each comparison.
+UpReg_Revigo <- Create_revigoplots(GO_UPRegResults)
+saveplot(UpReg_Revigo[[1]], "RevigoHeatmap_UPReg_")
+saveplot(UpReg_Revigo[[2]], "RevigoScatterplot_UPReg_")
+# Create Revigo plots with DOWN Regulated GO Term Results object and save respective scatter plots and heat plots for each comparison.
+DownReg_Revigo <- Create_revigoplots(GO_DOWNRegResults)
+saveplot(DownReg_Revigo[[1]], "RevigoHeatmap_DOWNReg_")
+saveplot(DownReg_Revigo[[2]], "RevigoScatterplot_DOWNReg_")
+
+} # ending the for loop for ComparisonList
