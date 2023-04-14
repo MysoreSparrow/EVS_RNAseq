@@ -35,7 +35,8 @@ Package_List <-
     "factoextra",
     "here",
     "data.table",
-    "ggrastr"
+    "ggrastr",
+    "rrvgo"
   )
 not_installed <-
   Package_List[!(Package_List %in% installed.packages()[, "Package"])] # Extract not installed packages
@@ -68,9 +69,9 @@ ComparisonList <- c(
   "adult_WTVsadult_SPF" # adult SPF is the numerator
 )
 for (i in ComparisonList) {
-  print(i)
   Comparison <- i
   print(Comparison)
+
 
 # Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
@@ -79,7 +80,7 @@ for (i in ComparisonList) {
 # Comparison <- "adult_GFVsd7_GF" # d7 GF is the Numerator
 # Comparison <- "adult_GFVsadult_WT" # adult WT is the numerator
 # Comparison <- "adult_GFVsadult_SPF" # adult SPF is the numerator
-# Comparison <- "adult_spfVsd7_spf" # SPF is the Numerator
+# Comparison <- "adult_spfVsd7_spf" # d7 SPF is the Numerator
 # Comparison <- "d7_GFVsd7_WT" WT is the Numerator
 
 # Determine the Comparison Condition: Comment one of them out based on the comparison you are trying to run.
@@ -211,8 +212,8 @@ saveplot <- function(plot, plotname) {
     ), sep = ""),
     plot = plot,
     dpi = 300,
-    width = 12,
-    height = 12,
+    width = 15,
+    height = 15,
     units = "in"
   )
   # dev.off()
@@ -385,9 +386,8 @@ print(percentVar)
       aes(
         x = PC1,
         y = PC2,
-        color = ifelse(Comparison_Condition == "MouseType",
-                                   MouseType,
-                                   Sample_Name), # MouseType,
+        color = Sample_Name,
+          # ifelse(Comparison_Condition == "MouseType", MouseType,Sample_Name),
         label = Sample_Name
       )
     ) +
@@ -401,13 +401,13 @@ print(percentVar)
 )
 saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
 
+
 # PCA Plot : PC3 vs PC4
 (
   PCAplot_pc34 <-
     ggplot(pcaData, aes(x = PC3, y = PC4,
-                        color = ifelse(Comparison_Condition == "MouseType",
-                                        MouseType,
-                                        Sample_Name), # MouseType,
+                        color = Sample_Name,
+                        # ifelse(Comparison_Condition == "MouseType", MouseType,Sample_Name),
                         label = Sample_Name)) +
     xlab(paste0("PC3: ", percentVar[3], "% variance")) +
     ylab(paste0("PC4: ", percentVar[4], "% variance")) +
@@ -634,7 +634,7 @@ volcano1 <-
     legendIconSize = 4.0,
     drawConnectors = T,
     widthConnectors = 0.5,
-    max.overlaps = 12,
+    max.overlaps = 10,
     axisLabSize = 18,
     xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
              max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
@@ -642,7 +642,7 @@ volcano1 <-
     raster = TRUE,
     directionConnectors = "both",
     arrowheads = TRUE,
-    min.segment.length = 0.3
+    # min.segment.length = 0.3
   )
 
 volcano1 <- volcano1 +
@@ -690,7 +690,7 @@ volcano2 <-
     legendIconSize = 4.0,
     drawConnectors = T,
     widthConnectors = 0.75,
-    max.overlaps = 12,
+    max.overlaps = 10,
     axisLabSize = 18,
     xlim = c(min(resdf$log2FoldChange, na.rm = TRUE) - 0.5,
              max(resdf$log2FoldChange, na.rm = TRUE) + 0.5),
@@ -698,7 +698,7 @@ volcano2 <-
     raster = TRUE,
     directionConnectors = "both",
     arrowheads = TRUE,
-    min.segment.length = 0.25
+    # min.segment.length = 0.25
   )
 volcano2 <- volcano2 +
   scale_y_continuous(
@@ -993,17 +993,14 @@ if (nrow(GO_DOWNRegResults_df > 0)) {
   print("There were 0 rows in ORA analysis results!")
 }
 
-
+#######################################################################
 # Revigo Plots
-library(rrvgo)
 rrvgo_function <- function(GOTERM_object){
   simMatrix <- calculateSimMatrix(GOTERM_object$ID,
                                   orgdb = "org.Mm.eg.db",
                                   ont = "BP",
                                   method = "Rel")
-  scores <- setNames(-log10(GOTERM_object$qvalue),
-                     GOTERM_object$ID)
-  head(scores)
+  scores <- setNames(-log10(GOTERM_object$pvalue), GOTERM_object$ID)
   reducedTerms <- reduceSimMatrix(simMatrix = simMatrix,
                                   scores,
                                   threshold = 0.7,
@@ -1013,28 +1010,105 @@ rrvgo_function <- function(GOTERM_object){
 
 }
 
-# rrvgo_object <- rrvgo_function(GO_Results_object)
+#
+CreateScatterPlot <- function(simMatrix,
+                              reducedTerms,
+                              algorithm=c("pca", "umap"),
+                              onlyParents=FALSE,
+                              size="score",
+                              addLabel=TRUE,
+                              labelSize=3,
+                              scoreVar="score") {
+
+  if(!all(sapply(c("ggplot2", "ggrepel", "umap"), requireNamespace, quietly = TRUE))) {
+    stop("Packages ggplot2, ggrepel, umap and/or its dependencies not available. ",
+         "Consider installing them before using this function.", call. = FALSE)
+  }
+
+  if(onlyParents){
+    x <- as.data.frame(table(reducedTerms$parentTerm))
+    reducedTerms <- reducedTerms[reducedTerms$term == reducedTerms$parentTerm, ]
+    simMatrix <- simMatrix[reducedTerms$go, reducedTerms$go]
+    reducedTerms[, size] <- x$Freq[match(reducedTerms$term, x$Var1)]
+  }
+
+  x <- switch(match.arg(algorithm),
+              pca = cmdscale(as.matrix(as.dist(1-simMatrix)), eig=TRUE, k=2)$points,
+              umap = umap::umap(as.matrix(as.dist(1-simMatrix)))$layout)
+
+  df <- cbind(as.data.frame(x),
+              reducedTerms[match(rownames(x), reducedTerms$go), c("term", "parent", "parentTerm", "score", size)])
+
+  p <-
+    ggplot2::ggplot(df, ggplot2::aes(x=V1, y=V2)) +
+    ggplot2::geom_point(ggplot2::aes_string(size=size,
+                                            color = scoreVar,
+                                            alpha = scoreVar),
+                        show.legend = TRUE) +
+    ggplot2::scale_color_gradient(low = "white", high = "blue") +
+    ggplot2::scale_alpha(range = c(0.2, 1), guide = "none") +
+    ggplot2::scale_size_continuous(guide="none", range=c(0, 15)) +
+    ggplot2::scale_x_continuous(name="") +
+    ggplot2::scale_y_continuous(name="") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(axis.text.x=ggplot2::element_blank(), axis.text.y=ggplot2::element_blank())
+
+  if(addLabel) {
+    p + ggrepel::geom_label_repel(ggplot2::aes(label=term),
+                                  data = df,
+                                  box.padding=grid::unit(1, "lines"),
+                                  size=labelSize)
+  } else {
+    p
+  }
+}
 
 # Calculate similarity matrix and also perform visualisation
 Create_revigoplots <- function(GO_Results_object) {
   rrvgo_object <- rrvgo_function(GO_Results_object)
   heatmap_plot_object <- heatmapPlot(simMatrix = rrvgo_object[[1]],
-                                         reducedTerms = rrvgo_object[[2]],
-                                         annotateParent = TRUE,
-                                         annotationLabel = "parentTerm",
-                                         fontsize = 6)
-  scatterplot_object <- scatterPlot(rrvgo_object[[1]], rrvgo_object[[2]])
+                                     reducedTerms = rrvgo_object[[2]],
+                                     annotateParent = TRUE,
+                                     annotationLabel = "parentTerm",
+                                     fontsize = 6)
+  scatterplot_object <- CreateScatterPlot(rrvgo_object[[1]], rrvgo_object[[2]],
+                    onlyParents = TRUE, size = "score",
+                    addLabel = TRUE,
+                    labelSize = 4,
+                    scoreVar = "score")
+  # # Create a data frame with reduced terms and p-values
+  # revigo_df <- data.frame(Term = rrvgo_object[[2]]$term,
+  #                         P_Value = rrvgo_object[[2]]$score)
+  #
+  # # Set color and alpha levels based on p-values
+  # revigo_df$Color <- ifelse(revigo_df$P_Value < 1, "steelblue", "gray80")
+  # revigo_df$Alpha <- ifelse(revigo_df$P_Value < 1, 0.8, 0.2)
+  #
+  # # Create scatter plot using ggplot2
+  # scatterplot_object <- ggplot(data = revigo_df, aes(x = rrvgo_object[[1]],
+  #                                                    y = rrvgo_object[[2]])) +
+  #   geom_point(aes(color = revigo_df$Color, alpha = revigo_df$Alpha)) +
+  #   scale_color_identity() +
+  #   scale_alpha_identity() +
+  #   guides(size = FALSE)
 
-  return(list(heatmap_plot_object, scatterplot_object))
+  return(list(heatmap_plot_object, scatterplot_object, rrvgo_object))
 }
+
+# sc <- CreateScatterPlot(rrvgo_object[[1]], rrvgo_object[[2]],
+#                   onlyParents = TRUE, size = "score",
+#                   addLabel = TRUE,
+#                   labelSize = 4,
+#                   scoreVar = "score")
 
 # Create Revigo plots with Up Regulated GO Term Results object and save respective scatter plots and heat plots for each comparison.
 UpReg_Revigo <- Create_revigoplots(GO_UPRegResults)
 saveplot(UpReg_Revigo[[1]], "RevigoHeatmap_UPReg_")
 saveplot(UpReg_Revigo[[2]], "RevigoScatterplot_UPReg_")
-# Create Revigo plots with DOWN Regulated GO Term Results object and save respective scatter plots and heat plots for each comparison.
+# # Create Revigo plots with DOWN Regulated GO Term Results object and save respective scatter plots and heat plots for each comparison.
 DownReg_Revigo <- Create_revigoplots(GO_DOWNRegResults)
 saveplot(DownReg_Revigo[[1]], "RevigoHeatmap_DOWNReg_")
 saveplot(DownReg_Revigo[[2]], "RevigoScatterplot_DOWNReg_")
 
-} # ending the for loop for ComparisonList
+
+}
