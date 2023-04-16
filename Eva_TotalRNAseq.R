@@ -68,12 +68,12 @@ ComparisonList <- c(
   "adult_spfVsd7_spf", # d7 SPF is the Numerator
   "adult_WTVsadult_SPF" # adult SPF is the numerator
 )
-for (i in ComparisonList) {
-  Comparison <- i
-  print(Comparison)
+# for (i in ComparisonList) {
+#   Comparison <- i
+#   print(Comparison)
 
 
-# Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
+Comparison <- "d7_GFVsd7_SPF" # SPF is the Numerator.
 # Comparison <- "adult_GFVsd7_GF" # d7 is the Numerator
 # Comparison <- "d7_WTVsd7_spF"# SPF is the Numerator
 # Comparison <- "adult_WTVsd7_WT" # d7 WT is the Numerator
@@ -212,8 +212,8 @@ saveplot <- function(plot, plotname) {
     ), sep = ""),
     plot = plot,
     dpi = 300,
-    width = 15,
-    height = 15,
+    width = 8,
+    height = 8,
     units = "in"
   )
   # dev.off()
@@ -303,11 +303,13 @@ theme.my.own <- list(
   theme(
     text = element_text(size = 15),
     axis.text = element_text(size = 15),
-    legend.position = "right",
+    legend.position = "bottom",
+    # legend.title = element_text(label = glue("{Comparison_Condition}")),
     aspect.ratio = 1
   ),
   # geom_text(size = 4, hjust = 0, vjust = 0),
-  geom_text_repel(size = 4, min.segment.length = 0.1)
+  geom_text_repel(size = 4, min.segment.length = 0.1),
+  scale_color_manual(values = c("GF" = "#BDA202", "WLD" = "#077E97", "SPF" = "#90BFF9"))
 )
 # PCA Plot Calculation
 # Calculating all PCA Values
@@ -362,52 +364,38 @@ percentvar_calculation <- function(pcaData_variable) {
 
 switch(Comparison_Condition,
   "condition" = {
-    pcaData <- plotPCA_local(vsd,
-      intgroup = c("condition", "Sample_Name"),
-      returnData = T
-    )
+    pcaData <- plotPCA_local(vsd, intgroup = c("condition", "Sample_Name"),
+                             returnData = T)
   }, #
   "MouseType" = {
-    pcaData <- plotPCA_local(vsd,
-      intgroup = c("MouseType", "Sample_Name"),
-      returnData = T
-    )
+    pcaData <- plotPCA_local(vsd, intgroup = c("MouseType", "Sample_Name"),
+                             returnData = T)
   },
 )
+print(Comparison_Condition)
 print(pcaData)
 percentVar <- percentvar_calculation(pcaData)
 print(percentVar)
 
 # PC Plot: PC1 vs PC2
 (
-  PCAplot_vst <-
-    ggplot(
-      pcaData,
-      aes(
-        x = PC1,
-        y = PC2,
-        color = Sample_Name,
-          # ifelse(Comparison_Condition == "MouseType", MouseType,Sample_Name),
-        label = Sample_Name
-      )
+  PCAplot_vst <- ggplot(
+      pcaData, aes(x = PC1, y = PC2, color = pcaData[, Comparison_Condition],# using Comparison_Condition column to color the plot
+        label = Sample_Name)
     ) +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
     ggtitle(glue("PCA: {Comparison}")) +
-    scale_color_manual(values = c("GF" = "#BDA202",
-                                  "WLD" = "#077E97",
-                                  "SPF" = "#90BFF9")) +
-    theme.my.own
+    theme.my.own +
+    labs(color = glue("{Comparison}"))
 )
 saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
-
 
 # PCA Plot : PC3 vs PC4
 (
   PCAplot_pc34 <-
     ggplot(pcaData, aes(x = PC3, y = PC4,
-                        color = Sample_Name,
-                        # ifelse(Comparison_Condition == "MouseType", MouseType,Sample_Name),
+                        color = pcaData[, Comparison_Condition],
                         label = Sample_Name)) +
     xlab(paste0("PC3: ", percentVar[3], "% variance")) +
     ylab(paste0("PC4: ", percentVar[4], "% variance")) +
@@ -415,7 +403,8 @@ saveplot(PCAplot_vst, plotname = "PCA_PC1vsPC2")
     scale_color_manual(values = c("GF" = "#BDA202",
                                   "WLD" = "#077E97",
                                   "SPF" = "#90BFF9")) +
-    theme.my.own
+    theme.my.own +
+    labs(color = glue("{Comparison}"))
 )
 saveplot(PCAplot_pc34, plotname = "PCA_PC3vsPC4")
 
@@ -1045,7 +1034,7 @@ CreateScatterPlot <- function(simMatrix,
                                             color = scoreVar,
                                             alpha = scoreVar),
                         show.legend = TRUE) +
-    ggplot2::scale_color_gradient(low = "white", high = "blue") +
+    ggplot2::scale_color_gradient(low = "darkgrey", high = "blue") +
     ggplot2::scale_alpha(range = c(0.2, 1), guide = "none") +
     ggplot2::scale_size_continuous(guide="none", range=c(0, 15)) +
     ggplot2::scale_x_continuous(name="") +
@@ -1111,4 +1100,5 @@ saveplot(DownReg_Revigo[[1]], "RevigoHeatmap_DOWNReg_")
 saveplot(DownReg_Revigo[[2]], "RevigoScatterplot_DOWNReg_")
 
 
-}
+# }
+
